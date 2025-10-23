@@ -39,7 +39,7 @@ Finally, at the presentation layer, a decoupled frontend (SOFEA) allows users to
 
 ## Deployment View
 
-  ![Component-and-connector-view](C&C_View.png)
+  ![Component-and-connector-view](C&C_View_Prototype2.png)
 
 
 
@@ -183,7 +183,11 @@ Finally, at the presentation layer, a decoupled frontend (SOFEA) allows users to
 Description of architectural elements, relations, and deployment patterns is conveyed in the referenced diagram.
 
 ## Layered Structure
-  ![Layer-view](Layer_view.png)
+  ![Layer-view](Layer_view_Prototype2.png)
+
+**The structure of the logic layer is shown below to avoid redundancy in the main view. In general, each component follows the same structure.
+
+<img src="Layer_logic_Prototype2.png" alt="Rootly Logo" width="500"/>
 
 ### 1. Overview
 - Architectural pattern: Layered architecture with hybrid communication

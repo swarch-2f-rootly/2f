@@ -37,7 +37,7 @@ Finally, at the presentation layer, a decoupled frontend (SOFEA) allows users to
 
 # Architectural Structures
 
-## Deployment View
+## Components and Connector view
 
   ![Component-and-connector-view](C&C_View_Prototype2.png)
 
@@ -182,10 +182,10 @@ Finally, at the presentation layer, a decoupled frontend (SOFEA) allows users to
   ![Deploy-view](Deploy_view.png)
 Description of architectural elements, relations, and deployment patterns is conveyed in the referenced diagram.
 
-## Layered Structure
+## Layered view  - Tiers
   ![Layer-view](Layer_view_Prototype2.png)
 
-**The structure of the logic layer is shown below to avoid redundancy in the main view. In general, each component follows the same structure.
+** **Layered view  - Layers** The structure of the logic layer is shown below to avoid redundancy in the main view. In general, each component follows the same structure.
 
 <img src="Layer_logic_Prototype2.png" alt="Rootly Logo" width="500"/>
 
@@ -231,7 +231,7 @@ Description of architectural elements, relations, and deployment patterns is con
   - Dependencies: No outbound dependencies; upper layers perform read/write operations here
 
 ## Decomposition View
-  ![Decomposition-view](Decmp_view.png)
+  ![Decomposition-view](Decmp_view_Prototype2.png)
 
 ### Purpose
 Shows the hierarchical breakdown of the system into functional modules, clarifying responsibilities from high-level features down to services.

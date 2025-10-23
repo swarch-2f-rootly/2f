@@ -458,18 +458,21 @@ Once started, the services will be available at:
   - API Documentation: http://localhost:8001/docs
   - Health Check: http://localhost:8001/health
 
-- **be-data-management**: http://localhost:8002
+- **be-data-ingestion**: http://localhost:8005
+  - Health Check: http://localhost:8005/health
+
+- **be-data-processing**: http://localhost:8002
   - Health Check: http://localhost:8002/health
 
 - **be-user-plant-management**: http://localhost:8003
   - API Documentation: http://localhost:8003/docs
   - Health Check: http://localhost:8003/health
 
-- **db-data-management**: http://localhost:8086
+- **db-data-processing**: http://localhost:8086
   - Admin UI: Access via web browser
   - Credentials: admin / admin123
 
-- **stg-data-management**: http://localhost:9000
+- **stg-data-processing**: http://localhost:9000
   - Console: http://localhost:9001
   - Credentials: admin / admin123
 

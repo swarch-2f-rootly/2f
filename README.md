@@ -1,5 +1,5 @@
 # Rootly 
-## Prototype 1
+## Prototype 2
 
 ### Organization link:
 https://github.com/swarch-2f-rootly

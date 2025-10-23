@@ -120,7 +120,7 @@ Finally, at the presentation layer, a decoupled frontend (SOFEA) allows users to
     - Produces asynchronous messages to `queue-data-ingestion`.
 
 
-4. **be-data-processing**  
+5. **be-data-processing**  
   - Type: Backend Microservice
   - Responsibility: Transforms, aggregates, and stores data received from ingestion queues.
   - Protocols: Kafka WIRE, HTTP/GraphQL (blue data resource lines).
@@ -205,7 +205,9 @@ Finally, at the presentation layer, a decoupled frontend (SOFEA) allows users to
 | **be-autentication-and-roles**         | 8001    | User authentication (login/logout), role-based access control (RBAC), JWT token management, user lifecycle.        | Independent service with dedicated database; does not access sensor/plant data directly. | REST APIs for auth and roles. |
 | **be-user-plant-management**        | 8003    | Manages plants, user-device associations, microcontroller lifecycle, enabling/disabling devices.                    | Specialized in domain entities (plants, devices); relies on auth service for user information. | REST APIs for CRUD on devices/plants. |
 | **be-analytics**                      | 8000    | Processes and analyzes sensor data, computes agricultural metrics, trend analysis. | Read-only access to sensor data; no modification of primary records; specialized in analytics.| REST/GraphQL APIs for reports and trends. |
-| **be-data-management**                | 8002    | Ingests sensor data from IoT devices, validates/normalizes, stores in InfluxDB and MinIO Data Lake.                 | Single entry point for IoT data; ensures data integrity; does not perform advanced analytics. | HTTP endpoints for ingestion. |
+| **be-data-ingestion**                | 8005    | Receives and ingests sensor data from microcontroller devices, validating and forwarding to the processing pipeline                 | Single entry point for IoT data; ensures data integrity; does not perform advanced analytics. | HTTP endpoints for ingestion. |
+| **be-data-processing**                | 8002    | Transforms, aggregates, and stores data received from ingestion queues.                 | Single entry point for IoT data;  |communicates via REST/GraphQL APIs. |
+
 
 ### Databases and Storage
 
@@ -213,9 +215,9 @@ Finally, at the presentation layer, a decoupled frontend (SOFEA) allows users to
 |---------------------------------------|-----------|-------------|
 | **db-autentication-and-roles**        | 5432      | `authentication_and_roles_db` with users, roles, permissions, sessions, and tokens |
 | **db-user-plant-management**          | 5433      | `user_plant_management` with user–plant–device associations |
-| **db-data-management**                | 8086      | `agricultural_data` database with processed measurements and historical metrics |
+| **db-data-processing**                | 8086      | `agricultural_data` database with processed measurements and historical metrics |
 | **stg-autentication-and-roles**       | 9002–9003 | Storage for profile photos |
-| **stg-data-management**               | 9000–9001 | Data files, backups, unstructured content |
+| **stg-data-processing**               | 9000–9001 | Data files, backups, unstructured content |
 | **stg-user-plant-management**         | 9004–9005 | Storage for plant images |
 
 
@@ -227,9 +229,13 @@ Finally, at the presentation layer, a decoupled frontend (SOFEA) allows users to
 <img width="1920" height="1080" alt="C C - ViewP2" src="https://github.com/user-attachments/assets/fe57a2a7-1e8c-4c95-bfc7-67ab7a36968a" />
 
 
-Description of architectural elements, relations, and deployment patterns is conveyed in the referenced diagram.
+- **Node 1 – Core services cluster:** Runs the containerized backend on a shared host network. The `api-gateway` fronts the synchronous services (`be-authentication-and-roles`, `be-user-plant-manager`, `be-analytics`) exposed on ports 8000–8005, while the ingestion pipeline (`be-data-ingestion`, `be-data-processing`) communicates internally through Kafka topics. This node follows a container-per-service pattern to allow independent scaling and controlled restarts.
+- **Node 2 – Client delivery zone:** Hosts the web (SSR) and mobile frontends behind ports 3000–3001. These containers sit in a DMZ-style segment that only opens outbound HTTP/GraphQL traffic to the API gateway, enforcing the client → gateway → service call chain.
+- **Node 3 – Edge device network:** Represents the microcontroller fleet that publishes telemetry directly to `be-data-ingestion` over HTTPS. Devices remain outside the core cluster but are whitelisted to reach the ingestion endpoints.
 
-## Layered view  - Tiers
+Support services are deployed alongside the application containers: `queue-data-ingestion` (Kafka) and `zookeeper-data-ingestion` form the asynchronous backbone for sensor data, while each business service points to its paired persistence stack (`db-*` for PostgreSQL, `stg-*` for object/time-series storage) located in the data zone on the right. This arrangement combines the API Gateway, Message Queue, and Database per Service deployment patterns, keeping cross-node traffic explicit and routing sensitive data through well-defined interfaces.
+
+## Layered view  - Tiers  - 5 - Tier Architecture
   ![Layer-view](Layer_view_Prototype2.png)
 
 ** **Layered view  - Layers** The structure of the logic layer is shown below to avoid redundancy in the main view. In general, each component follows the same structure.
@@ -410,7 +416,12 @@ Shows the hierarchical breakdown of the system into functional modules, clarifyi
 
 1. **Clone the repository** (if not already done)
 ```bash
+git clone https://github.com/swarch-2f-rootly/rootlymobileapp.git
 git clone https://github.com/swarch-2f-rootly/rootly-frontend.git
+git clone https://github.com/swarch-2f-rootly/rootly-ssr-frontend.git
+git clone https://github.com/swarch-2f-rootly/rootly-apigateway.git
+git clone https://github.com/swarch-2f-rootly/rootly-data-processing.git
+git clone https://github.com/swarch-2f-rootly/rootly-data-ingestion.git
 git clone https://github.com/swarch-2f-rootly/rootly-analytics-backend.git
 git clone https://github.com/swarch-2f-rootly/rootly-deploy.git
 git clone https://github.com/swarch-2f-rootly/rootly-user-plant-management-backend.git

@@ -278,6 +278,68 @@ Description of architectural elements, relations, and deployment patterns is con
 ## Decomposition View
   ![Decomposition-view](Decmp_view_Prototype2.png)
 
+```mermaid
+
+graph TD
+    A[Plant Management System ROOTLY] --> B[Authentication and User Management]
+    A --> C[User and Plant Management]
+    A --> D[Data Analysis]
+    A --> E[historical]
+    
+    B --> B1[User Management]
+    B --> B2[User Authentication]
+    
+    B1 --> B1a[Create account]
+    B1 --> B1b[Update account]
+    B1 --> B1c[Delete account]
+    
+    B2 --> B2a[Login]
+    B2 --> B2b[Password change]
+    B2 --> B2c[Logout]
+    
+    C --> C1[Plant Management]
+    C --> C2[Device Management]
+    
+    C1 --> C1a[Create plant]
+    C1 --> C1b[Update plant]
+    C1 --> C1c[Delete plant]
+    C1 --> C1d[Add plant photo]
+    C1 --> C1e[Delete plant photo]
+    C1 --> C1f[List all plants]
+    C1 --> C1g[List plants by ID]
+    C1 --> C1h[List plants by device]
+    C1 --> C1i[Enable monitoring]
+    C1 --> C1j[Disable monitoring]
+    C1 --> C1k[Associate device]
+    C1 --> C1l[Disassociate device]
+    
+    C2 --> C2a[Create device]
+    C2 --> C2b[Update device]
+    C2 --> C2c[List all devices]
+    C2 --> C2d[List device by ID]
+    C2 --> C2e[List user's devices]
+    C2 --> C2f[Update user's device]
+    C2 --> C2g[Delete user's device]
+    C2 --> C2h[Associate device]
+    C2 --> C2i[Disassociate device]
+    
+    D --> D1[Data Processing]
+    D --> D2[Statistical processing]
+    D --> D3[Reports]
+    
+    D1 --> D1a[Query historical data]
+    D1 --> D1b[Query averaged historical data]
+    
+    D2 --> D2a[Trend analysis]
+    
+    D3 --> D3a[Generate individual metric report]
+    D3 --> D3b[Generate multi-metric report]
+    
+    E --> E1[Consume from Kafka]
+    E --> E2[Store sensor data]
+
+```
+
 ### Purpose
 Shows the hierarchical breakdown of the system into functional modules, clarifying responsibilities from high-level features down to services.
 

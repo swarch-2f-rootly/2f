@@ -179,7 +179,8 @@ Finally, at the presentation layer, a decoupled frontend (SOFEA) allows users to
 
 
 ## Deployment View
-  ![Deploy-view](Deploy_view.png)
+<img width="1570" height="1072" alt="image" src="https://github.com/user-attachments/assets/87bc5534-809e-4685-b72c-67c82e7617a0" />
+
 Description of architectural elements, relations, and deployment patterns is conveyed in the referenced diagram.
 
 ## Layered view  - Tiers

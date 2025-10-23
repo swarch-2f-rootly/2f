@@ -58,12 +58,33 @@ Finally, at the presentation layer, a decoupled frontend (SOFEA) allows users to
 ### Frontend
 - **Frontend Service**  
   - Type: Web client application
-  - Responsibility: Unified user interface and presentation management
+  - Responsibility: Provides the user interface for the web platform; handles presentation logic, user interactions, and requests to backend services.
   - Role in connections: Consumer
   - Relations:
-    - Consumes `BackEnd Authentication-and-roles` (HTTP/REST)
-    - Consumes `BackEnd User-plant-management` (HTTP/REST)
-    - Consumes `BackEnd Analytics` (HTTP/GraphQL)
+    - Serves the "web-browser"
+    - Consumes `API Gateway` (HTTP/GraPQL)
+
+- **Frontend Mobile**  
+  - Type: Mobile client application
+  - Responsibility: Provides a mobile-optimized interface consuming backend APIs directly via REST.
+  - Role in connections: Consumer
+  - Relations:
+    - Consumes `API Gateway` (HTTP/REST)
+
+
+### Middleware Layer
+- **api-gateway**
+
+  - Type: Gateway / API Orchestrator
+  - Responsibility: Central entry point for all clients (web and mobile). Routes, aggregates, and authenticates API requests to backend microservices.
+
+  - Protocols:
+    - HTTP/GraphQL/REST — to internal services (`be-user-plant-management`, `be-analytics`)
+    - HTTP/REST — to `be-authentication-and-roles`.
+
+  - Relations:
+    - Receives requests from `fe-web` and `fe-mobile`.
+    - Consumes services from backend modules (`be-user-plant-management`, `be-authentication-and-roles`, `be-analytics`).
 
 ### Backend Services
 1. **be-autentication-and-roles**  
@@ -90,12 +111,32 @@ Finally, at the presentation layer, a decoupled frontend (SOFEA) allows users to
     - Serves the `FrontEnd` (HTTP/GraphQL)
     - Connects to `DB Data-management`
 
-4. **be-data-management**  
-  - Type: Data management service
-  - Responsibility: Ingests and manages data from IoT devices
+4. **be-data-ingestion**  
+  - Type: Backend Microservice 
+  - Responsibility: Receives and ingests sensor data from microcontroller devices, validating and forwarding to the processing pipeline.
+  - Protocols: HTTP/REST (red) from devices, Kafka WIRE (pink dotted) to `queue-data-ingestion`.
   - Relations:
-    - Is fed by the `Microcontroller Device` (HTTP/REST)
-    - Connects to `STG Data-management`
+    - Consumes data from `microcontroller-device`
+    - Produces asynchronous messages to `queue-data-ingestion`.
+
+
+4. **be-data-processing**  
+  - Type: Backend Microservice
+  - Responsibility: Transforms, aggregates, and stores data received from ingestion queues.
+  - Protocols: Kafka WIRE, HTTP/GraphQL (blue data resource lines).
+  - Relations:
+    - Consumes data from `queue-data-ingestion`.
+    - Produces processed results stored in `stg-data-processing` and `db-data-processing`.
+    - Provides processed `data to be-analytics`.
+
+### queue-data-ingestion
+  - Type: Message Broker (Kafka)
+  - Responsibility: Asynchronous event queue for decoupling ingestion and processing services.
+  - Protocols: Kafka WIRE connector (pink dotted).
+  - Relations:
+    - Producer: be-data-ingestion.
+    - Consumer: be-data-processing.
+
 
 ### IoT Devices
 - **microcontroller-device**  
@@ -106,11 +147,15 @@ Finally, at the presentation layer, a decoupled frontend (SOFEA) allows users to
 - **Databases (DB)**
   - `DB Authentication-and-roles`: Transactional storage for users and permissions
   - `DB User-plant-management`: Transactional storage for plants and relationships
-  - `DB Data-management`: Storage for processed and analytical data
+  - `DB Data Processing`: Storage for processed and analytical data
 - **Storage (STG)**
   - `STG Authentication-and-roles`: Reference data for authentication
   - `STG User-plant-management`: Master data and plant configurations
-  - `STG Data-management`: Temporary or raw storage for device data
+  - `STG Data-processing`: Temporary or raw storage for device data
+
+
+
+
 
 ---
 

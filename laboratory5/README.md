@@ -20,7 +20,7 @@
 
 The objective of this laboratory is to select, analyze, and implement a set of architectural patterns oriented toward system security.
 
-In this case, we will implement the **Network Segmentation Pattern**, which was assigned to our team. This pattern implements the **Limit Access** security tactic (part of the **Resist Attacks** tactics) by dividing the system's infrastructure into isolated network zones. The purpose is to minimize the attack surface and restrict lateral movement of threats within the system.
+In this case, we will implement the **Network Segmentation Pattern**, which was assigned to our team. This pattern implements the **Limit Access** security tactic (part of the **Resist Attacks** tactics) by dividing the system's infrastructure into isolated network zones. The purpose is to minimize the attack surface in the system.
 
 ---
 
@@ -43,29 +43,30 @@ Docker offers several network drivers, but for single-host, multi-service deploy
 
 ## 3. Security Scenario Analysis: CIA Triad
 
-The implementation of the Network Segmentation Pattern is a direct response to a high-risk scenario that threatens the **Confidentiality** and **Integrity** of the application's data.
+The implementation of the Network Segmentation Pattern is a direct response to a high-risk scenario that threatens the **Confidentiality**, **Integrity**, and **Availability** of the application's data and services.
 
 ### CIA Triad Affected
-This scenario addresses security through direct mitigation of risks that could compromise the system's **Confidentiality** and **Integrity**.
+This scenario addresses security through direct mitigation of risks that could compromise the system's **Confidentiality**, **Integrity**, and **Availability**.
 * **Confidentiality:** There is a risk that sensitive data (user records, plant information, sensor data) could be exposed if an attacker gains direct access to the database or internal APIs without passing through the frontend's authentication and authorization controls.
 * **Integrity:** There is a risk of unauthorized modification, deletion, or corruption of data if an attacker can bypass the application's business logic and invoke backend services directly, thereby altering the correct state of the system.
+* **Availability:** There is a risk of denial of service if an attacker can directly target specific backend services or the database with a high volume of requests, saturating those services and rendering them unavailable to legitimate users. Without network segmentation, an attacker could bypass rate limiting and access controls at the frontend level and overwhelm critical backend components directly.
 
 ### Six Key Security Concepts in the Scenario
 
 | Concept | Definition | Description in Rootly's Scenario (Pre-Segmentation) |
 | :--- | :--- | :--- |
-| **Weakness** | A design flaw or inherent system susceptibility that can be exploited. | **Flat Network Architecture:** All services (Frontend, API Gateway, Database) are deployed on a single shared network segment. This lack of logical separation facilitates unauthorized discovery and lateral movement within the network, allowing an attacker who compromises one entry point to access other critical services. |
+| **Weakness** | A design flaw or inherent system susceptibility. | **Flat Network Architecture:** All services (Frontend, API Gateway, Database) are deployed on a single shared network segment. This lack of logical separation facilitates unauthorized discovery and lateral movement within the network, allowing an attacker who compromises one entry point to access other critical services. |
 | **Vulnerability** | The specific path or condition that allows a threat to materialize or exploit a weakness. | **Direct Backend Port Exposure:** Since all services are on the same host, an attacker who discovers the host's public IP can perform a port scan and potentially discover unauthenticated ports of sensitive backend services (e.g., API Gateway on port 8080) that were not designed for direct public consumption. |
 | **Threat** | The agent or motivation that executes the attack. | **External Malicious Actor/Automated Bot:** An individual or script originating from the public internet, actively probing the host's public IP to find accessible services and exploit vulnerabilities. This type of threat seeks breaches in the security perimeter. |
 | **Attack** | The sequence of actions performed by the threat to exploit the vulnerability. | **Network Reconnaissance and Direct Service Access:** The attacker executes an **Nmap scan** on the host's public IP to list all open ports. Subsequently, they attempt a direct connection or unauthorized API call (e.g., using `curl`) to a backend port, completely bypassing the Frontend's security checks. |
-| **Risk** | The potential for loss or damage if the threat successfully exploits the vulnerability. | **Data Leakage and Manipulation:** The primary risk is a high-impact **Data Breach**, resulting in loss of **Confidentiality** (data exposed) and **Integrity** (data modified or corrupted), which can lead to operational shutdown of the system and cause severe reputational damage to the plant monitoring platform. |
-| **Countermeasure** | The architectural or implementation action taken to mitigate the risk. | **Network Segmentation Pattern:** Implementation of a **`rootly-public-network`** and a **`rootly-private-network`**. By removing the API Gateway from any network accessible via host ports, the direct access vulnerability is eliminated, as the attacker can only reach the Frontend, which acts as a controlled single point of entry. |
+| **Risk** | The probability that a threat exploits a weakness, causing a negative impact, considering the severity of the damage and the probability of occurrence. | **Data Leakage, Manipulation, and Service Disruption:** The primary risk is a high-impact **Data Breach** with high probability of occurrence, resulting in loss of **Confidentiality** (data exposed), **Integrity** (data modified or corrupted), and **Availability** (services saturated and unavailable). This can lead to operational shutdown of the system and cause severe reputational damage to the plant monitoring platform. |
+| **Countermeasure** | The architectural or implementation action taken to mitigate the risk. | **Network Segmentation Pattern:** Implementation of a **`rootly-public-network`** and a **`rootly-private-network`**. By removing port mappings from all backend components (API Gateway, backend services, databases, message queues, and storage systems) and isolating them exclusively on the private network, the direct access vulnerability is eliminated. The attacker can only reach the Frontend, which acts as a controlled single point of entry. All backend services, including authentication backends, analytics services, data processing services, PostgreSQL databases, InfluxDB, MinIO storage, and Kafka queues, are now completely inaccessible from external networks, protected by network-level isolation. |
 
 ---
 
 ## 4. Simulated Attack Guide (Linux/Bash Environment)
 
-This guide illustrates the attack process in a **Pre-Segmentation** environment and how the **Post-Segmentation** countermeasure defeats it. We assume the host IP is `192.168.1.10` and that the frontend service is running on port 3001. To allow users to interact with our frontend, we must expose it with a public IP (in this case `192.168.1.10:3001`). This is a necessary step; however, malicious users could leverage their networking knowledge to scan our network and attempt unauthorized access.
+This guide illustrates the attack process in a **Pre-Segmentation** environment . We assume the host IP is `192.168.1.10` and that the frontend service is running on port 3001. To allow users to interact with our frontend, we must expose it with a public IP (in this case `192.168.1.10:3001`). This is a necessary step; however, malicious users could leverage their networking knowledge to scan our network and attempt unauthorized access.
 
 ### Prerequisites
 
@@ -81,9 +82,6 @@ sudo pacman -S --noconfirm nmap
 # Install curl for HTTP requests (usually pre-installed on Arch)
 sudo pacman -S --noconfirm curl
 
-# Verify Docker and Docker Compose are installed
-docker --version
-docker compose version
 ```
 
 ### Phase 1: Preparation and Discovery (Attacker Steps)
@@ -158,42 +156,17 @@ curl -v http://192.168.1.10:8080/api/v1/health --max-time 5
 ```
 
 **Analysis:** Despite nmap reporting ports as "filtered", the services ARE accessible! This demonstrates:
-- Port 3001: Frontend - **Intended public access** ✓
-- Port 8080: API Gateway - **SECURITY VULNERABILITY** - Accessible without authentication
-- Port 8000-8003, 8005: Backend services - **CRITICAL VULNERABILITIES** - Should be internal only
-- Port 5432: PostgreSQL Database - **CRITICAL VULNERABILITY** - Should never be exposed
-- Port 8082: Kafka UI - **SECURITY VULNERABILITY** - Administrative interface exposed
+- Port 3001: Frontend - **Intended public access**
+- Port 8080: API Gateway - **VULNERABILITY** - Accessible without authentication
+- Port 8000-8003, 8005: Backend services - **VULNERABILITY** - Should be internal only
+- Port 5432: PostgreSQL Database - **VULNERABILITY** - Should never be exposed
+- Port 8082: Kafka UI - **VULNERABILITY** - Administrative interface exposed
 
 The Docker firewall creates a false sense of security. All mapped ports are actually accessible.
 
-**Post-Segmentation Result (Secured System):**
-
-After implementing network segmentation (removing port mappings from backend services in docker-compose.yml), the same scan would show:
-
-```
-Starting Nmap 7.98 ( https://nmap.org ) at 2025-11-02 16:05 -0500
-Nmap scan report for 192.168.1.10
-Host is up.
-
-PORT     STATE    SERVICE
-3001/tcp filtered nessus
-5432/tcp filtered postgresql
-8000/tcp filtered http-alt
-8001/tcp filtered vcom-tunnel
-8002/tcp filtered teradataordbms
-8003/tcp filtered mcreport
-8005/tcp filtered mxi
-8080/tcp filtered http-proxy
-8082/tcp filtered blackice-alerts
-
-Nmap done: 1 IP address (1 host up) scanned in 3.55 seconds
-```
-
 ### Phase 2: The Attack - Direct Service Access Attempt
 
-The attacker attempts to exploit the discovered backend services by bypassing the frontend authentication layer. 
-
-#### Scenario A: PRE-SEGMENTATION (Attack Succeeds)
+The attacker attempts to exploit the discovered backend services by bypassing the frontend authentication layer.
 
 In the vulnerable configuration, the attacker can directly access backend services. Let's demonstrate attacks on different services:
 
@@ -236,7 +209,8 @@ curl -v http://192.168.1.10:8000/health --max-time 5
 psql -h 192.168.1.10 -p 5432 -U postgres
 ```
 
-**Result:** All connections succeed! The attacker has:
+**Result:** Some connections succeed! The attacker has:
+
 - **Direct API Gateway access** - Can potentially exploit unauthenticated endpoints
 - **Direct backend service access** - Can bypass business logic and access controls
 - **Database exposure** - Could attempt password brute-force or exploit vulnerabilities
@@ -346,11 +320,28 @@ frontend-ssr:
     - API_GATEWAY_URL=http://api-gateway:8080  # Uses internal DNS
 ```
 
-**Critical Understanding:** The frontend receives **two IP addresses**:
-- **Public Network IP** (example: `172.19.0.2`): Used for external connections from the host
-- **Private Network IP** (example: `172.20.0.2`): Used for internal communication with backend services
+**Critical Understanding - Dual Network Interface:**
 
-Only the public network IP is exposed via port mapping. The private network IP remains internal, enabling secure backend communication without external exposure.
+When a container is attached to multiple Docker networks, Docker assigns it a **separate IP address on each network**. The frontend container receives **two distinct IP addresses**, one for each network:
+
+1. **Public Network IP** (example: `172.19.0.2` on `rootly-public-network`):
+   - This IP address is **exposed** to the host machine through the port mapping (`3001:3001`)
+   - External users connect to the host's IP (`192.168.1.10:3001`), which Docker routes to this public network IP
+   - This IP is accessible from outside the container network, making it the entry point for legitimate users
+   - **Vulnerability:** This IP is exposed and can be targeted by attackers, but it only provides access to the frontend application
+
+2. **Private Network IP** (example: `172.20.0.2` on `rootly-private-network`):
+   - This IP address is **NOT exposed** to the host machine - it exists only within the Docker private network
+   - It is **technically the IP used** by the frontend container to communicate with backend services (API Gateway, databases, etc.)
+   - When the frontend makes internal API calls using service names (e.g., `http://api-gateway:8080`), Docker's DNS resolution routes these requests through this private network IP
+   - **Security:** This IP is completely invisible and unreachable from external networks, ensuring that backend communication cannot be intercepted or attacked from outside
+
+**How It Works in Practice:**
+
+- **External user request:** `http://192.168.1.10:3001` → Host routes to → Frontend's public IP (`172.19.0.2:3001`)
+- **Frontend internal request:** Frontend's private IP (`172.20.0.2`) → Private network → API Gateway's private IP (example: `172.20.0.3:8080`)
+
+The key security benefit is that **only the public network IP is exposed**, while the private network IP remains completely internal. This means that even if an attacker could somehow compromise the frontend application, they would still need to discover and exploit the private network IP to access backend services - which is extremely difficult since it has no external routing path.
 
 ### 5.3. Complete Configuration Comparison
 
@@ -442,41 +433,7 @@ networks:
 - Frontend is the **only** service in both networks and the **only** service with external access
 - Private network is marked as `internal: true` for maximum isolation
 
-### 5.4. Network Communication Flow
-
-The following diagrams illustrate how traffic flows through the segmented architecture. Note that IP addresses shown are examples for illustration purposes.
-
-**External User → Frontend:**
-```
-External User (example: 192.168.1.10:3001) 
-    → Host Network Interface
-    → Docker Port Mapping (3001:3001)
-    → Frontend Container (rootly-public-network IP example: 172.19.0.2)
-```
-
-**Frontend → API Gateway (Internal):**
-```
-Frontend Container (rootly-private-network IP example: 172.20.0.2)
-    → Docker Internal DNS (api-gateway)
-    → API Gateway Container (rootly-private-network IP example: 172.20.0.3)
-```
-
-**API Gateway → Backend Services:**
-```
-API Gateway (rootly-private-network IP example: 172.20.0.3)
-    → Docker Internal DNS (be-authentication-and-roles)
-    → Backend Service (rootly-private-network IP example: 172.20.0.4)
-```
-
-**External Attacker → API Gateway (BLOCKED):**
-```
-External Attacker (example: 192.168.1.10:8080)
-    → Host Network Interface
-    → NO PORT MAPPING EXISTS
-    → Connection Refused
-```
-
-### 5.5. Security Benefits Achieved
+### 5.4. Security Benefits Achieved
 
 | Aspect | Before Segmentation | After Segmentation |
 |--------|--------------------|--------------------|
@@ -493,38 +450,7 @@ External Attacker (example: 192.168.1.10:8080)
 
 After implementing network segmentation by removing port mappings and isolating services on the private network, we verify that the previous attack vectors are now completely blocked. The attacker has **no way** to access backend services.
 
-### 6.1. Network Reconnaissance - Post Segmentation
-
-The attacker repeats the same reconnaissance scan to identify exposed services:
-
-```bash
-# Attacker performs the same nmap scan after segmentation
-sudo nmap -p 3001,5432,8000-8003,8005,8080,8082 192.168.1.10
-```
-
-**Post-Segmentation Scan Result:**
-```
-Starting Nmap 7.98 ( https://nmap.org ) at 2025-11-03 16:15 -0500
-Nmap scan report for 192.168.1.10
-Host is up.
-
-PORT     STATE    SERVICE
-3001/tcp filtered nessus
-5432/tcp filtered postgresql
-8000/tcp filtered http-alt
-8001/tcp filtered vcom-tunnel
-8002/tcp filtered teradataordbms
-8003/tcp filtered mcreport
-8005/tcp filtered mxi
-8080/tcp filtered http-proxy
-8082/tcp filtered blackice-alerts
-
-Nmap done: 1 IP address (1 host up) scanned in 3.55 seconds
-```
-
-**Critical Observation:** The nmap output looks identical to the pre-segmentation scan (all ports show as "filtered"). However, the crucial difference is that now these ports are **genuinely inaccessible**, not just filtered by Docker's iptables. The port mappings have been completely removed.
-
-### 6.2. Attack Attempts - All Vectors Blocked
+### 6.1. Attack Attempts - All Vectors Blocked
 
 The attacker now attempts to exploit the previously vulnerable services. **Every single attack fails.**
 
@@ -615,7 +541,7 @@ curl: (7) Failed to connect to 192.168.1.10 port 8082 after 0 ms: Could not conn
 
 **Result: BLOCKED** - Administrative interfaces are no longer exposed.
 
-### 6.3. Why the Attacker Cannot Access the Services
+### 6.2. Why the Attacker Cannot Access the Services
 
 The network segmentation pattern eliminates attack vectors through three key mechanisms:
 
@@ -636,7 +562,7 @@ The network segmentation pattern eliminates attack vectors through three key mec
    - All backend requests must go through the frontend's authentication/authorization logic
    - Result: Attackers **must** authenticate through the frontend to access any backend functionality
 
-### 6.4. Attack Surface Comparison
+### 6.3. Attack Surface Comparison
 
 | Attack Vector | Pre-Segmentation | Post-Segmentation |
 |---------------|------------------|-------------------|
@@ -649,7 +575,7 @@ The network segmentation pattern eliminates attack vectors through three key mec
 
 **Conclusion:** The attacker has **absolutely no way** to directly access any backend service, database, or administrative interface. The attack surface has been reduced from 8+ vulnerable entry points to a single, controlled entry point (the frontend) where proper authentication and authorization are enforced.
 
-### Phase 3: Verification of Internal Communication (Countermeasure success without affecting internal opperations)
+### Phase 3: Verification of Internal Communication (Countermeasure success without affecting internal operations)
 
 This phase verifies that legitimate communication between frontend and backend services still functions correctly over the private network, proving that segmentation enhances security without breaking functionality.
 
@@ -753,17 +679,6 @@ written to stdout
 ```
 
 **Result:** All connections succeed, confirming full internal network functionality is preserved across all services in the private network. The frontend can communicate with all backend services using Docker's internal DNS.
-
-### Summary of Results
-
-| Test Scenario | Pre-Segmentation | Post-Segmentation |
-|---------------|------------------|-------------------|
-| External scan reveals API Gateway | Port 8080 visible (filtered) | Port 8080 appears filtered |
-| External scan reveals Database | Port 5432 visible (filtered) | Port 5432 appears filtered |
-| Direct external access to API Gateway | Connection succeeds (VULNERABLE) | Connection refused (SECURE) |
-| Frontend to API Gateway communication | Works | Works (via private network) |
-| Functionality preserved | Yes | Yes |
-| Security posture | Weak - Direct access possible | Strong - Only frontend exposed |
 
 ---
 

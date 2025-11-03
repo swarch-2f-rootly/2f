@@ -4,6 +4,8 @@
 ### Organization Link:
 [https://github.com/swarch-2f-rootly](https://github.com/swarch-2f-rootly)
 
+<img src="iconRootly.png" alt="Rootly Logo" width="100"/>
+
 ## Team 2F
 - Carlos Santiago Sandoval Casallas
 - Cristian Santiago Tovar Bejarano
@@ -15,6 +17,31 @@
 - Andrés Camilo Orduz Lunar
 
 ---
+
+## Previous architecture 
+### Components and connectors view
+<img src="cyc.png" alt="cyc view" width="1000"/>
+
+### System Overview
+
+The system follows a **Client–Server** and **Microservices** architectural style, where each component has a clearly defined role within the overall interaction flow.  
+**External components** —such as the *Web Browser* and *Microcontroller Devices*— operate outside the internal scope, interacting with system services through **HTTP/REST** or **GraphQL** protocols. The web browser acts as the primary user interface for the web application, while microcontroller devices capture and send sensor or plant data to the *Data Ingestion Service (be-data-ingestion)*.
+
+**Internal components** are organized into functional layers. The *Frontend Web* and *Frontend Mobile* act as consumers of the *API Gateway*, which serves as the central entry point, handling routing, authentication, and request orchestration to backend microservices. These backend services —including *be-authentication-and-roles*, *be-user-plant-management*, *be-analytics*, *be-data-ingestion*, and *be-data-processing*— manage specific business capabilities such as authentication, user and plant management, analytics, and IoT data processing.  
+
+Communication between services combines **synchronous interactions** via APIs (HTTP/REST or GraphQL) and **asynchronous messaging** through the *Kafka-based message broker* (*queue-data-ingestion*), ensuring a decoupled, scalable, and resilient data flow.  
+Finally, **Databases (DB)** and **Storage layers (STG)** provide persistent and structured data management, maintaining data integrity, reliability, and availability across all subsystems.
+
+
+### Deploy view
+<img src="deploy.png" alt="deploy view" width="1000"/>
+
+### Deployment Overview
+
+The deployment view illustrates a distributed architecture composed of three main nodes connected through a **shared LAN network**. **Node 1** hosts the system’s core within a **Dockerized environment**, where the frontend (`fe-ssr-web`), API gateway, and multiple backend microservices for authentication, analytics, data ingestion, processing, and plant management run as isolated containers. These services communicate internally via a **private Docker network**, supported by dedicated databases (`db-*`), storage layers (`stg-*`), and an asynchronous **Kafka message broker** that handles data ingestion and processing workflows.  
+
+Externally, **Node 2** represents the mobile client (`fe-mobile`), and **Node 3** the IoT microcontroller device, both interacting with Node 1 through the same LAN. The mobile app communicates with the `api-gateway`, while microcontrollers send sensor data directly to `be-data-ingestion`. This structure combines **containerization**, **microservices**, and **event-driven patterns** to ensure scalability, modularity, and efficient data flow across the system.
+
 
 ## 1. Objective and Architectural Pattern Selection
 
@@ -445,6 +472,9 @@ networks:
 | **Defense in Depth** | Single layer (application auth) | Multiple layers (network + application) |
 
 ---
+
+### Deploy view with Network segmentation pattern
+<img src="deploy segmentation.png" alt="deploy view" width="1000"/>
 
 ## 6. Post-Segmentation Attack Results
 

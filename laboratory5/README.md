@@ -737,3 +737,80 @@ The Network Segmentation Pattern successfully isolates backend services while ma
 2. **"Filtered" ≠ "Secure":** Nmap showing filtered ports doesn't guarantee security; actual accessibility must be verified
 3. **Network Segmentation Is Essential:** Internal services should never be directly accessible from external networks
 4. **Frontend as Gateway:** The frontend acts as the controlled entry point, enforcing authentication before allowing backend access
+
+### Recommendations for Implementing Network Segmentation in Docker Projects
+
+Based on the implementation and testing performed in this laboratory, here are practical recommendations for applying the Network Segmentation Pattern to any Docker-based project:
+
+#### 1. Start with Network Design First
+
+**Recommendation:** Design your network architecture before deploying services. Map out which services need external access and which should remain internal.
+
+**Best Practices:**
+- Create separate networks (`public-network` and `private-network`) before defining services
+- Document which services belong to each network and why
+- Use descriptive network names that clearly indicate their purpose (e.g., `app-public-network`, `app-private-network`)
+
+#### 2. Apply the Principle of Least Privilege
+
+**Recommendation:** Only expose what is absolutely necessary. Every port mapping should be questioned and justified.
+
+**Guidelines:**
+- **Default to private:** Start by placing all services on the private network
+- **Expose selectively:** Only add port mappings for services that genuinely require external access
+- **Review regularly:** Periodically audit port mappings and remove any that are no longer needed
+- **Document exceptions:** If a service must have external access, document the business justification
+
+#### 3. Use Internal Networks for Backend Services
+
+**Recommendation:** Mark private networks as `internal: true` to prevent any external connectivity, even accidental.
+
+**Implementation:**
+```yaml
+networks:
+  private-network:
+    driver: bridge
+    internal: true  # Prevents external routing
+```
+
+**Benefits:**
+- Eliminates risk of accidental exposure
+- Prevents containers from making outbound connections to the internet (unless needed)
+- Provides stronger isolation guarantees
+
+#### 4. Implement Multi-Network Containers Strategically
+
+**Recommendation:** Only containers that legitimately need to bridge networks should be attached to multiple networks.
+
+**Pattern:**
+- **Gateway containers** (frontend, reverse proxy): Attach to both public and private networks
+- **Backend services:** Attach only to private network
+- **Databases:** Attach only to private network
+- **Message queues:** Attach only to private network
+
+**Avoid:**
+- Attaching backend services to public networks "just in case"
+- Creating unnecessary network bridges
+
+#### 5. Leverage Docker DNS for Service Discovery
+
+**Recommendation:** Use Docker's built-in DNS resolution instead of hardcoding IP addresses.
+
+**Benefits:**
+- Services can be referenced by name (e.g., `http://api-gateway:8080`)
+- IP addresses can change without breaking connectivity
+- More maintainable and readable configuration
+
+**Example:**
+```yaml
+environment:
+  - DATABASE_URL=postgresql://db-service:5432/mydb  # Use service name
+  # Avoid: DATABASE_URL=postgresql://172.20.0.5:5432/mydb  # Hardcoded IP
+```
+#### Common Pitfalls to Avoid
+
+1. **False sense of security:** Assuming services are secure just because they're on Docker networks (port mappings can still expose them)
+2. **Over-segmentation:** Creating too many networks unnecessarily complicates architecture
+3. **Neglecting internal security:** Internal networks still need proper authentication between services
+4. **Forgetting dependencies:** Some services might need temporary access during startup that should be removed after initialization
+5. **Inconsistent implementation:** Different team members applying segmentation differently

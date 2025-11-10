@@ -67,6 +67,8 @@ The risk is not that the attacker breaks confidentiality, but that they **deny s
 
 ### Scenario Elements – Mitigation of Automated Floods (Light DDoS)
 
+<img src="scenery.png" alt="Quality Attribute Scenario" width="1000"/>
+
 This scenario evaluates the effectiveness of the **Reverse Proxy Pattern** as a countermeasure to protect Rootly’s HTTP entrypoints from flood attacks.
 
 #### 1. Artifact

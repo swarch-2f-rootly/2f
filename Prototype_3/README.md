@@ -30,7 +30,8 @@
 - **Logo:**  
 <img src="images/Rootly.png" alt="Rootly Logo" width="100"/>
 
-- **Description:**  
+**Description:**
+  
 **ROOTLY** is an agricultural monitoring system designed to support significant decision-making in the agricultural environment. It leverages a microservices-based architecture to integrate field devices, process data, and deliver real-time analytics to users through a web and mobile application.
 
 The system operates by capturing environmental and soil data—such as humidity and temperature—directly from the field using microcontroller devices. This information is then sent to a central platform where it is processed, validated, and analyzed. The platform's architecture combines robust databases for storing both transactional information (like user profiles and configurations) and large volumes of time-series sensor data.

@@ -20,7 +20,7 @@
     - [Web Application Firewall](#web-application-firewall)
   - [Performance and Scalability](#performance-and-scalability)
     - [Load Balancers](#load-balancers)
-    - [otro patron](#otro-patron)
+    - [Caching](#caching)
 - [Prototype – Deployment Instructions](#deployment-instructions)
   
 ---
@@ -45,115 +45,161 @@ Finally, users can access all this information through an intuitive interface, a
 ### Components and Connector view
 ![component-and-connector-view](images/C&C_View_Prototype2.png)
 
+---
 
 ### External Components (Out of System Scope)
+
 - **Web Browser**
   - Type: External client
   - Responsibility: User interface for web applications
-  - Protocols: HTTP
-  - Relations: Consumes `FrontEnd` via HTTP
-- **Microcontroller Device (different implementations)**
+  - Protocols: **HTTPS**
+  - Relations: Consumes `fe-web` via HTTPS
+
+- **Frontend Mobile (fe-mobile)**
+  - Type: Mobile client application
+  - Responsibility: Provides a mobile-optimized interface consuming backend APIs directly via REST.
+  - Protocols: **HTTP/REST**
+  - Relations: Consumes `reverse-proxy` via HTTP/REST
+
+- **Microcontroller Device**
   - Type: External IoT/embedded device
   - Responsibility: Collects and sends sensor and plant data
-  - Protocols: HTTP/REST
-  - Relations: Consumes `BackEnd data-ingestion` via HTTP/REST
+  - Protocols: **HTTP/REST**
+  - Relations: Consumes `lb-data-ingestion` via HTTP/REST
 
-### Internal Components
+- **External Microcontroller Device**
+  - Type: External IoT/embedded device
+  - Responsibility: Collects and sends sensor and plant data
+  - Protocols: **HTTP/REST**
+  - Relations: Consumes `lb-data-ingestion` via HTTP/REST
 
-**Frontend Service**  
+---
+
+### Internal Components (Edge/Network)
+
+- **WAF**
+  - Type: Security Firewall / Edge Service
+  - Responsibility: Protects web applications from common attacks and filters malicious traffic before it reaches the reverse proxy.
+  - Protocols: **HTTPS**
+  - Relations:
+    - Receives requests from `web-browser`.
+    - Routes traffic to `reverse-proxy`.
+
+- **reverse-proxy**
+  - Type: Network Proxy
+  - Responsibility: Handles request routing, load balancing, and potentially SSL termination before traffic reaches the `api-gateway`.
+  - Protocols: **HTTP/REST**
+  - Relations:
+    - Receives requests from `WAF` and `fe-mobile`.
+    - Routes traffic to `api-gateway`.
+
+- **lb-analytics**
+  - Type: Load Balancer
+  - Responsibility: Distributes incoming requests from `api-gateway` across multiple instances of the `be-analytics` service.
+  - Protocols: **HTTP/GraphQL**
+  - Relations:
+    - Receives requests from `api-gateway`.
+    - Routes traffic to `be-analytics`.
+
+- **lb-data-ingestion**
+  - Type: Load Balancer
+  - Responsibility: Distributes incoming data ingestion requests from microcontroller devices across multiple instances of the `be-data-ingestion` service.
+  - Protocols: **HTTP/REST**
+  - Relations:
+    - Receives data from `microcontroller-device` and `external-microcontroller-device`.
+    - Routes traffic to `be-data-ingestion`.
+
+---
+
+### Internal Components (Application/Logic)
+
+- **fe-web**
   - Type: Web client application
   - Responsibility: Provides the user interface for the web platform; handles presentation logic, user interactions, and requests to backend services.
   - Role in connections: Consumer
   - Relations:
-    - Serves the "web-browser"
-    - Consumes `API Gateway` (HTTP/GraphQL)
+    - Serves the "web-browser" (HTTPS).
+    - Consumes `WAF` (HTTPS).
 
-- **Frontend Mobile**  
-  - Type: Mobile client application
-  - Responsibility: Provides a mobile-optimized interface consuming backend APIs directly via REST.
-  - Role in connections: Consumer
-  - Relations:
-    - Consumes `API Gateway` (HTTP/REST)
-
-
-**api-gateway**
-
+- **api-gateway**
   - Type: Gateway / API Orchestrator
-  - Responsibility: Central entry point for all clients (web and mobile). Routes, aggregates, and authenticates API requests to backend microservices.
-
-  - Protocols:
-    - HTTP/GraphQL/REST — to `be-analytics`
-    - HTTP/REST — to `be-authentication-and-roles` and `be-user-plant-management`.
-
+  - Responsibility: Central entry point for all clients. Routes, aggregates, and authenticates API requests to backend microservices.
+  - Protocols: **HTTP/GraphQL/REST**
   - Relations:
-    - Receives requests from `fe-web` and `fe-mobile`.
-    - Consumes services from backend modules (`be-user-plant-management`, `be-authentication-and-roles`, `be-analytics`).
+    - Receives requests from `reverse-proxy`.
+    - Consumes services from backend modules (`lb-analytics`, `ms-user-plant-management`, `ms-authentication-and-roles`).
 
-**be-authentication-and-roles**
+- **ms-authentication-and-roles**
   - Type: Backend Microservice
-  - Responsibility: Authentication and authorization service that manages users, credentials, and access control
+  - Responsibility: Authentication and authorization service.
   - Relations:
-    - Serves the `FrontEnd` (HTTP/REST)
-    - Connects to `DB Authentication-and-roles`
-    - Connects to `STG Authentication-and-roles`
+    - Serves the `api-gateway` (HTTP/REST).
+    - Connects to `db-authentication-and-roles` (data resource protocol).
+    - Connects to `stg-authentication-and-roles` (data resource protocol).
 
-**be-user-plant-management**
+- **ms-user-plant-management**
   - Type: Backend Microservice
-  - Responsibility: Plant and user management service that administers users, plants and devices relationships
+  - Responsibility: Plant and user management service.
   - Relations:
-    - Serves the `FrontEnd` (HTTP/REST)
-    - Connects to `DB User-plant-management`
-    - Connects to `STG User-plant-management`
+    - Serves the `api-gateway` (HTTP/REST).
+    - Connects to `db-user-plant-management` (data resource protocol).
+    - Connects to `stg-user-plant-management` (data resource protocol).
 
-**be-analytics**
-  - Type: Backend Microservice
-  - Responsibility: Analytics and reporting service for analytical processing and insight generation
-  - Protocols: HTTP/GraphQL for flexible queries
+- **be-analytics**
+  - Type: Backend service
+  - Responsibility: Analytics and reporting service.
+  - Protocols: **HTTP/GraphQL** for flexible queries.
   - Relations:
-    - Serves the `FrontEnd` (HTTP/GraphQL)
-    - Connects to `DB Data-management`
+    - Served by `lb-analytics`.
+    - Consumes `db-caching` (data resource protocol).
+    - Consumes `db-data-processing` (data resource protocol).
 
-**be-data-ingestion**
-  - Type: Backend Microservice
-  - Responsibility: Receives and ingests sensor data from microcontroller devices, validating and forwarding to the processing pipeline.
-  - Protocols: HTTP/REST (red) from devices, Kafka WIRE (pink dotted) to `queue-data-ingestion`.
+- **be-data-ingestion**
+  - Type: Backend service
+  - Responsibility: Receives and ingests sensor data from devices, validating and forwarding to the processing pipeline.
   - Relations:
-    - Consumes data from `microcontroller-device`
-    - Produces asynchronous messages to `queue-data-ingestion`.
+    - Served by `lb-data-ingestion`.
+    - Produces asynchronous messages to `queue-data-ingestion` (Kafka WIRE).
 
-
-**be-data-processing**  
+- **ms-data-processing**
   - Type: Backend Microservice
   - Responsibility: Transforms, aggregates, and stores data received from ingestion queues.
-  - Protocols: Kafka WIRE, HTTP/GraphQL (blue data resource lines).
   - Relations:
-    - Consumes data from `queue-data-ingestion`.
-    - Produces processed results stored in `stg-data-processing` and `db-data-processing`.
-    - Provides processed `data to be-analytics`.
+    - Consumes data from `queue-data-ingestion` (Kafka WIRE).
+    - Connects to `db-caching` (data resource protocol).
+    - Produces processed results stored in `stg-data-processing` (data resource protocol).
+    - Produces processed results stored in `db-data-processing` (data resource protocol).
 
-**queue-data-ingestion**
+---
+
+### Internal Components (Data & Asynchronous)
+
+- **queue-data-ingestion**
   - Type: Message Broker (Kafka)
   - Responsibility: Asynchronous event queue for decoupling ingestion and processing services.
-  - Protocols: Kafka WIRE connector (pink dotted).
+  - Protocols: **Kafka WIRE**.
   - Relations:
-    - Producer: be-data-ingestion.
-    - Consumer: be-data-processing.
+    - Producer: `be-data-ingestion`.
+    - Consumer: `ms-data-processing`.
 
+- **db-caching**
+  - Type: Caching Database
+  - Responsibility: High-speed, volatile storage for frequently accessed data to improve read performance.
+  - Protocols: **data resource protocol**
+  - Relations:
+    - Consumed by `be-analytics`.
 
-### IoT Devices
-- **microcontroller-device**  
-  - Capture field data such as soil humidity.  
-  - Send measurements to the Data Ingestion Service via **REST API calls**.  
-
-### Data Components
 - **Databases (DB)**
-  - `DB Authentication-and-roles`: Transactional storage for users and permissions
-  - `DB User-plant-management`: Transactional storage for plants and relationships
-  - `DB Data Processing`: Storage for processed and analytical data
+  - Protocols: **data resource protocol**
+  - `db-authentication-and-roles`: Transactional storage for users and permissions. Consumed by `ms-authentication-and-roles`.
+  - `db-user-plant-management`: Transactional storage for plants and relationships. Consumed by `ms-user-plant-management`.
+  - `db-data-processing`: Storage for processed and analytical data. Consumed by `be-analytics` and `ms-data-processing`.
+
 - **Storage (STG)**
-  - `STG Authentication-and-roles`: Reference data for authentication
-  - `STG User-plant-management`: Master data and plant configurations
-  - `STG Data-processing`: Temporary or raw storage for device data
+  - Protocols: **data resource protocol**
+  - `stg-authentication-and-roles`: Reference data for authentication. Consumed by `ms-authentication-and-roles`.
+  - `stg-user-plant-management`: Master data and plant configurations. Consumed by `ms-user-plant-management`.
+  - `stg-data-processing`: Temporary or raw storage for device data. Consumed by `ms-data-processing`.
 
 ---
 
@@ -178,45 +224,86 @@ In Rootly, Kafka acts as the broker: rootly-data-ingestion publishes sensor even
 The result is predictable interactions, easier evolution, and independent scaling of responsibilities.
 ---
 
-### Architectural Elements & Relations
+### Architectural Elements & Relations 
 
-#### **Web Browser**
-- External actor that runs the frontend (SPA in React).  
-- Consumes REST/GraphQL APIs with JWT authentication.  
-- Serves as the user interface between client and system.  
+#### **External Clients & Edge Services**
 
-#### **Frontend (rootly-frontend)**
-- User interface built with React + TypeScript.  
-- Displays agricultural metrics and real-time dashboards.  
-- Communicates only with backend services.  
+- **Web Browser**
+  - External actor that runs the frontend (SSR in React).
+  - Consumes APIs via the security and network layers.
+  - **Relation:** Connects to **WAF**.
 
-#### **Mobile App (rootly-mobileapp)**
-- Native mobile application that provides a user-friendly interface for on-the-go monitoring and management.
-- Consumes the same backend services as the web frontend via the API Gateway.
+- **Mobile App (fe-mobile)**
+  - Native mobile application for on-the-go monitoring and management.
+  - **Relation:** Connects to **reverse-proxy**.
 
-#### **API Gateway (api-gateway)**
-- Single entry point for all client applications (web and mobile).
-- Routes requests to the appropriate microservice, handles authentication, and aggregates responses.
+- **WAF (Web Application Firewall)**
+  - Security layer protecting the application from common web exploits.
+  - **Relation:** Sits between the **Web Browser** and **reverse-proxy**.
 
-#### **Backend Services**
-- **Authentication and Roles (be-authentication-and-roles):** Handles login, roles, and JWT tokens.  
-- **User and Plant Management (be-user-plant-management):** Manages users, plants, and microcontrollers.  
-- **Analytics (be-analytics):** Processes data, generates metrics, and analytical reports.  
-- **Data Ingestion (be-data-ingestion):** Receives sensor data from IoT devices and publishes it to the message queue.
-- **Data Processing (be-data-processing):** Consumes data from the message queue, transforms it, and stores it in the appropriate database.
+- **Reverse Proxy (reverse-proxy)**
+  - Handles initial traffic routing, load distribution, and potentially SSL termination.
+  - **Relation:** Receives traffic from **WAF** and **Mobile App**; forwards requests to **API Gateway**.
 
-#### **Message Queue (queue-data-ingestion)**
-- Kafka-based message broker that decouples the data ingestion process from data processing.
-- Ensures reliable, asynchronous communication for high-volume sensor data.
+#### **Frontend Services**
 
-#### **microcontroller-device**
-- ESP8266 microcontrollers with environmental sensors.  
-- Capture humidity, temperature, etc., and send data to the backend via HTTP POST.  
+- **Frontend Web (fe-web)**
+  - User interface built with React + TypeScript; displays metrics and dashboards.
+  - **Relation:** Consumes services via the **WAF** / **Reverse Proxy** path.
 
-#### **Databases and Storage**
-- **PostgreSQL:** SQL storage of users, roles, plants and physical devices.  
-- **InfluxDB:** Time-series storage of agricultural data (port 8086).  
-- **MinIO:** Distributed storage for profiles, plant images, and backups.  
+#### **Gateway & Core Logic Services**
+
+- **API Gateway (api-gateway)**
+  - Single entry point for all client applications (web and mobile). Routes requests, handles **authentication**, and aggregates responses.
+  - **Relation:** Receives requests from **reverse-proxy**; routes to **ms-authentication-and-roles**, **ms-user-plant-management**, and **lb-analytics**.
+
+- **Authentication and Roles (ms-authentication-and-roles)**
+  - Handles login, roles, JWT tokens, and authorization checks.
+  - **Relation:** Connects to **db-authentication-and-roles** and **stg-authentication-and-roles**.
+
+- **User and Plant Management (ms-user-plant-management)**
+  - Manages users, plant configurations, and device relationships.
+  - **Relation:** Connects to **db-user-plant-management** and **stg-user-plant-management**.
+
+- **Load Balancer - Analytics (lb-analytics)**
+  - Distributes client/gateway requests across instances of **be-analytics**.
+  - **Relation:** Served by **API Gateway**; forwards to **be-analytics**.
+
+- **Analytics (be-analytics)**
+  - Processes data, generates metrics, and analytical reports.
+  - **Relation:** Served by **lb-analytics**; consumes **db-caching** and **db-data-processing**.
+
+- **Load Balancer - Ingestion (lb-data-ingestion)**
+  - Distributes high-volume IoT data across instances of **be-data-ingestion**.
+  - **Relation:** Receives data from **microcontroller-device** and **external-microcontroller-device**; forwards to **be-data-ingestion**.
+
+- **Data Ingestion (be-data-ingestion)**
+  - Receives raw sensor data from IoT devices, validates it, and publishes it to the message queue.
+  - **Relation:** Served by **lb-data-ingestion**; produces messages to **queue-data-ingestion**.
+
+- **Data Processing (ms-data-processing)**
+  - Consumes data from the message queue, transforms/aggregates it, and stores the processed results.
+  - **Relation:** Consumes **queue-data-ingestion**; connects to **db-caching**, **stg-data-processing**, and **db-data-processing**.
+
+#### **Data, Messaging & IoT**
+
+- **Message Queue (queue-data-ingestion)**
+  - Kafka-based message broker for reliable, asynchronous communication (decouples ingestion and processing).
+  - **Relation:** Produced by **be-data-ingestion**; consumed by **ms-data-processing**.
+
+- **microcontroller-device**
+  - External IoT devices (e.g., ESP8266) capturing environmental data.
+  - **Relation:** Sends data to **lb-data-ingestion** via HTTP POST.
+
+- **Caching DB (db-caching)**
+  - High-speed, volatile storage (e.g., Redis) for frequently accessed data.
+  - **Relation:** Consumed by **be-analytics** and **ms-data-processing**.
+
+- **Databases and Storage (STG/DB)**
+  - **db-authentication-and-roles** (PostgreSQL): Transactional storage for users and permissions.
+  - **db-user-plant-management** (PostgreSQL): Transactional storage for plants and devices.
+  - **db-data-processing** (PostgreSQL/TimescaleDB): Storage for processed analytical data.
+  - **stg-data-processing** (MinIO/S3): Temporary or raw storage for device data/backups.
 
 ### Frontend and Backend Services
 
@@ -325,7 +412,7 @@ The deployment structure reveals several key architectural patterns:
 **Logic Layer Structure (Internal)**
 The diagram below illustrates the internal architecture of each microservice within the Logic Layer (T3). To maintain a clear separation of concerns and promote modularity, each service adopts a 4-layer architecture.
 
-![Layer-logic-view](Layer_logic_Prototype2.png)
+![Layer-logic-view](images/LayersLogicP3.png)
 
 ### Architectural patterns
 1. **Layered Architecture (Within each microservice)**
@@ -346,7 +433,7 @@ The diagram below illustrates the internal architecture of each microservice wit
 ## Decomposition Structure
 ### Decomposition View
 
-![Decomposition-view](Decmp_view_Prototype2.png)
+![Decomposition-view](images/DecmpP3.png)
 
 
 ### Purpose
@@ -415,7 +502,7 @@ Shows the hierarchical breakdown of the system into functional modules, clarifyi
 
 ## Performance and Scalability
 ### Load Balancers
-### otro patron
+### Caching
 
 ---
 # Prototype – Deployment Instructions

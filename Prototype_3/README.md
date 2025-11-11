@@ -2,7 +2,7 @@
 ## Prototype 3 - Quality Attributes, Part 1
 
 ## Team 2F
-- Carlos Santiago Sandoval Casallas, Cristian Santiago Tovar Bejarano, Danny Marcelo Yaluzan Acosta,Esteban Rodriguez Muñoz, Santiago Restrepo Rojas, Gabriela Guzmán Rivera, Gabriela Gallegos Rubio and Andrés Camilo Orduz Lunar.
+- Carlos Santiago Sandoval Casallas - Cristian Santiago Tovar Bejarano - Danny Marcelo Yaluzan Acosta - Esteban Rodriguez Muñoz - Santiago Restrepo Rojas - Gabriela Guzmán Rivera - Gabriela Gallegos Rubio - Andrés Camilo Orduz Lunar.
 
 ## Table of Contents
 
@@ -28,7 +28,7 @@
 ## Software System
 - **Name:** Rootly  
 - **Logo:**  
-<img src="iconRootly.png" alt="Rootly Logo" width="200"/>
+<img src="images/Rootly.png" alt="Rootly Logo" width="100"/>
 
 - **Description:**  
 **ROOTLY** is an agricultural monitoring system designed to support significant decision-making in the agricultural environment through data and analysis, using a service-oriented distributed architecture that integrates field devices and different services. At the **physical layer**, sensors and microcontrollers capture environmental and soil data—such as humidity and temperature, among others—and transmit them to the central platform. At the persistence layer, the architecture combines relational databases (PostgreSQL) for transactional information (users, configurations, profiles) with specialized NoSQL storage (InfluxDB) for time-series sensor data. At the service layer, independent logical components process and validate the information, applying business rules and exposing REST/GraphQL interfaces for consumption by other modules.Finally, at the presentation layer, a decoupled frontend (SOFEA) allows users to access reports with relevant metrics, visualize analytics, and manage their crop configurations in real time.

@@ -8,7 +8,7 @@
 
 - [Software System](#software-system)
 - [Architectural Structures](#architectural-structures)
-  - [Component-and-Connector Structure](#component-and-connector-view)
+  - [Component and Connector Structure](#component-and-connector-view)
   - [Deployment Structure](#deployment-view)
   - [Layered Structure](#layered-view)
   - [Decomposition Structure](#decomposition-view)

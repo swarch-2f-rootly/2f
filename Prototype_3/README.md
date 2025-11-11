@@ -40,8 +40,8 @@ Finally, users can access all this information through an intuitive interface, a
 ---
 
 # Architectural Structures
-
-## Components and Connector view
+## Components and Connector Structure
+### Components and Connector view
 ![Component-and-connector-view](images/C&C_View_Prototype2.png)
 
 

@@ -31,16 +31,19 @@
 <img src="images/Rootly.png" alt="Rootly Logo" width="100"/>
 
 - **Description:**  
-**ROOTLY** is an agricultural monitoring system designed to support significant decision-making in the agricultural environment through data and analysis, using a service-oriented distributed architecture that integrates field devices and different services. At the **physical layer**, sensors and microcontrollers capture environmental and soil data—such as humidity and temperature, among others—and transmit them to the central platform. At the persistence layer, the architecture combines relational databases (PostgreSQL) for transactional information (users, configurations, profiles) with specialized NoSQL storage (InfluxDB) for time-series sensor data. At the service layer, independent logical components process and validate the information, applying business rules and exposing REST/GraphQL interfaces for consumption by other modules.Finally, at the presentation layer, a decoupled frontend (SOFEA) allows users to access reports with relevant metrics, visualize analytics, and manage their crop configurations in real time.
+**ROOTLY** is an agricultural monitoring system designed to support significant decision-making in the agricultural environment. It leverages a microservices-based architecture to integrate field devices, process data, and deliver real-time analytics to users through a web and mobile application.
+
+The system operates by capturing environmental and soil data—such as humidity and temperature—directly from the field using microcontroller devices. This information is then sent to a central platform where it is processed, validated, and analyzed. The platform's architecture combines robust databases for storing both transactional information (like user profiles and configurations) and large volumes of time-series sensor data.
+
+Finally, users can access all this information through an intuitive interface, available on both web and mobile. They can view real-time metrics, explore historical data, manage their crops, and receive analytical insights to optimize their agricultural practices.
 
 ---
 
 # Architectural Structures
 
-## Component and Connector Structure
-### Component and Connector view
+## Components and Connector view
+![Component-and-connector-view](images/C&C_View_Prototype2.png)
 
-  ![Component-and-connector-view](C&C_View_Prototype2.png)
 
 ### External Components (Out of System Scope)
 - **Web Browser**
@@ -232,6 +235,8 @@
 | **stg-authentication-and-roles** | 9002 (Console: 9003) | MinIO storage for profile photos. |
 | **stg-data-processing** | 9000 (Console: 9001) | MinIO storage for data files, backups, unstructured content. |
 | **stg-user-plant-management** | 9004 (Console: 9005) | MinIO storage for plant images. |
+
+---
 
 ---
 

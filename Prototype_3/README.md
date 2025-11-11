@@ -169,10 +169,16 @@ Finally, users can access all this information through an intuitive interface, a
 1.  **API Gateway Pattern**
     This pattern provides a single, unified entry point for all client requests. The `api-gateway` component acts as a reverse proxy, routing requests from the frontend clients to the appropriate backend microservice. This simplifies the client application, offloads responsibilities like authentication and SSL termination, and provides an additional layer of security.
 
+2.  **Broker Pattern**
+    This pattern decouples producers and consumers through a message broker that handles routing, delivery guarantees, retries, and dead-letter queues. It enables asynchronous communication, smooths traffic spikes with backpressure, and allows services to evolve independently without tight coupling.
+In Rootly, Kafka acts as the broker: rootly-data-ingestion publishes sensor events to the queue, and rootly-data-processing consumes them for validation, transformation, and storage. The queue between these services (Kafka topics under the “queue-data-ingestion” namespace) provides at-least-once delivery and horizontal scalability.
+
+2.  **5 Tiers Architecture**
+    The 5-level architecture improves communication between components by separating responsibilities into tiers (physical) and layers (logical). It also has a hierarchy, since the upper layers depend on the lower ones.The levels establish clear boundaries and responsibilities for components to collaborate with each other, facilitating communication between components. The logical layers represent the internal structure of the components and internal dependencies.
+The result is predictable interactions, easier evolution, and independent scaling of responsibilities.
 ---
 
 ### Architectural Elements & Relations
-
 
 #### **Web Browser**
 - External actor that runs the frontend (SPA in React).  

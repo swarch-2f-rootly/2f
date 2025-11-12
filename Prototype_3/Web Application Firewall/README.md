@@ -46,7 +46,7 @@ iimagencitaaa
 
 ### Scenario Elements
 
-<img width="1452" height="417" alt="Captura de pantalla 2025-11-09 210820" src="../images/WAFPattern.png" />
+<img src="../images/WAFPatternScenario.png" />
 
 
 ### 1. Artifact
@@ -55,7 +55,7 @@ iimagencitaaa
 Components directly responsible for receiving, routing, and protecting HTTP/HTTPS flows:
 
 - **Reverse Proxy / API Gateway** (`rootly-apigateway` behind the current reverse proxy).  
-- **Proposed WAF service** (`waf-rootly`) acting as the pre-gateway inspection layer.  
+- **Proposed WAF service** (`rootly-waf`) acting as the pre-gateway inspection layer.  
 - **Supporting assets**: WAF rule sets, IP lists (allow/deny), centralized metrics and logging pipelines used to trigger automated countermeasures.
 
 ### 2. Source

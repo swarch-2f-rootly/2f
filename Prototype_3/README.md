@@ -496,9 +496,6 @@ Shows the hierarchical breakdown of the system into functional modules, clarifyi
 
 ## Security
 ### Network Segmentation
-# Security Quality Attribute Scenario: Network Segmentation Pattern Implementation and Validation
-
-## Quality Attribute Scenario
 
 ### Scenario Elements
 
@@ -627,8 +624,6 @@ The Network Segmentation Pattern mitigates this security scenario by implementin
 
 This approach implements the "Limit Access" security tactic by ensuring external attackers cannot directly reach internal services, forcing all traffic through the authenticated frontend gateway.
 
-
-
 ### Comparative Security Assessment
 
 
@@ -643,7 +638,14 @@ This approach implements the "Limit Access" security tactic by ensuring external
 | **Authentication Bypass Possible** | Yes | No | Security control enforced |
 
 
-### Security Outcome
+### Summary
+
+## Verification – Comparative Analysis
+
+| Aspect | **Before Network segmentation** | **After  Network segmentation** |
+|--------|-------------------------------------|------------------------------------|
+| **Response** | | |
+| **Response Measure** |  |  |
 
 The Network Segmentation Pattern successfully transformed the system from a vulnerable flat architecture to a secured segmented architecture, achieving the primary security objective of zero successful external connections to internal services while maintaining full internal functionality.
 
@@ -652,6 +654,8 @@ The Network Segmentation Pattern successfully transformed the system from a vuln
 ---
 ### Secure Channel
 
+**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: **[Secure Channel Pattern Documentation]
+(https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/secure_channel/README.md)**
 ---
 ### Reverse Proxy
 
@@ -707,7 +711,7 @@ By placing the WAF (`rootly-waf`) in front of the reverse proxy and API Gateway,
 
 This countermeasure mitigates the initial weakness by adding an **intelligent filtering and control mechanism** at the network edge, transforming a passive reverse proxy into an active protection layer capable of handling complex, distributed attacks. Full implementation details live in the dedicated documentation: [Web Application Firewall (WAF) Scenario](Web%20Application%20Firewall).
 
-## Validation – Comparative Analysis
+## Verification 
 
 | Aspect | **Before WAF (Reverse Proxy Only)** | **After WAF (WAF Pattern Applied)** |
 |--------|-------------------------------------|------------------------------------|

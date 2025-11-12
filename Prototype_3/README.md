@@ -787,10 +787,10 @@ Adopting the reverse proxy converted an unbounded ingress path into a controlled
 **💡 Note on Architectural Pattern:** See the [Reverse Proxy Pattern Documentation](reverse_proxy/README.md) for Nginx configuration, validation commands, and extended results.
 
 ---
-### Web Application Firewall
+## Web Application Firewall
 ![Web Application Firewall scenario](images/WAFPatternScenario.png)
 
-## Scenario Snapshot
+### Scenario Snapshot
 In this scenario, the system faces a sustained Layer-7 DDoS attack targeting its public API endpoints.  
 Initially, an NGINX reverse proxy acts as the only public entry point, forwarding all traffic to the API Gateway without deep inspection or rate limiting.  
 This design exposes the system to resource exhaustion, high latency, and loss of availability.  
@@ -803,7 +803,7 @@ To mitigate this weakness, the **Web Application Firewall (WAF) pattern** is app
 - **Vulnerability:** Absence of application-layer protection and global throttling. The reverse proxy lacks mechanisms to identify and block abusive request patterns.
 - **Countermeasure:** Introduce a **Web Application Firewall (WAF)** in front of the reverse proxy/API Gateway to inspect, filter, and throttle malicious traffic before it reaches backend services.
 
-## Explanation of the Countermeasure
+### Explanation of the Countermeasure
 
 The **Web Application Firewall (WAF) pattern** introduces a dedicated layer for **application-layer inspection and traffic control**.  
 It applies the *Detect Service Denial* and *Limit Resource Demand* architectural tactics to strengthen the system’s availability and resilience.
@@ -816,11 +816,11 @@ By placing the WAF (`rootly-waf`) in front of the reverse proxy and API Gateway,
 - **Maintain service availability** with minimal latency degradation during high-volume attacks.  
 - **Centralize telemetry** (blocked IPs, triggered rules, anomaly scores) for auditing and adaptive security tuning.
 
-This countermeasure mitigates the initial weakness by adding an **intelligent filtering and control mechanism** at the network edge, transforming a passive reverse proxy into an active protection layer capable of handling complex, distributed attacks. Full implementation details live in the dedicated documentation: [Web Application Firewall (WAF) Scenario](Web%20Application%20Firewall).
+This countermeasure mitigates the initial weakness by adding an **intelligent filtering and control mechanism** at the network edge, transforming a passive reverse proxy into an active protection layer capable of handling complex, distributed attacks.
 
-## Summary
+### Summary
 
-## Verification 
+### Verification 
 
 | Aspect | **Before WAF (Reverse Proxy Only)** | **After WAF (WAF Pattern Applied)** |
 |--------|-------------------------------------|------------------------------------|
@@ -830,17 +830,61 @@ This countermeasure mitigates the initial weakness by adding an **intelligent fi
 The implementation of the **WAF pattern** effectively mitigates application-layer denial-of-service attacks by intercepting and filtering malicious requests before they reach the API Gateway.  
 Quantitative validation confirms a **substantial improvement in availability and latency stability**, transforming the system from a single-point-of-failure exposure to a resilient, monitored, and adaptive traffic control plane.
 
+**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: [Web Application Firewall (WAF) Scenario](Web%20Application%20Firewall)
+
 ---
 
-## Performance and Scalability
-### Load Balancer
+# Performance and Scalability
+## Load Balancer
 
-## Verification – Comparative Analysis
+![Scenario](../images/scLoadBalancerP3.png)
+During peak usage, approximately **4,000 HTTP requests were sent within 1 or 2 seconds** (to simulate concurrency) from multiple external clients accessing the `/graphql_analytics` endpoint. Forwarded all requests directly to a single backend instance, causing **increased response times, uneven workload distribution, and CPU saturation**.  Although the system remained functional, **response time variance and throughput degradation** became evident as concurrency grew beyond ~3,000 users, exposing limitations in scalability and responsiveness.
 
-| Aspect | **Before Load Balancer** | **After Load Balancer** |
-|--------|-------------------------------------|------------------------------------|
-| **Response** | | |
-| **Response Measure** |  |  |
+
+| **Element** | **Description** |
+|--------------|-----------------|
+| **Artifact** | Analytics Backend — GraphQL analytics endpoint |
+| **Source** | Multiple external users concurrently sending analytics requests |
+| **Stimulus** | 4000 HTTP requests generated within a 2-second interval |
+| **Environment** | Normal operation under synthetic load testing |
+| **Response** | System processes all requests, logging latency and HTTP status outcomes |
+| **Response Measure** | Primary metrics: Response time variance (%) and failed request rate per test period |
+
+### Baseline Load Test (Before Load Balancer)
+
+![baseline-performance](../images/sin_lbGraphql_analytics_performance.png)
+
+### Countermeasure Implementation: Load Balancer Pattern
+
+**Load Balancer** was introduced in front of the analytics backend cluster to enable **request distribution** across multiple instances.  
+The configuration applied included:
+- Round-robin routing strategy  
+- Health checks and failover logic  
+- Disabled session persistence to prevent node saturation  
+- Continuous metric collection via Prometheus and Grafana
+
+###  Implementation Load Balancer Results**
+
+![post-lb-performance](../images/con_lbGraphql_analytics_performance_avg_3iter.png)
+
+### Performance Metrics Comparison
+
+| **Metric** | **Before Load Balancer** | **After Load Balancer** | **Observation / Technical Impact** |
+|-------------|---------------------------|---------------------------|------------------------------------|
+| **Average Response Time (ms)** | 620 ms | 285 ms | ↓ Response time reduced by ~54%, indicating improved distribution and reduced queueing latency. |
+| **Response Time Variance (%)** | 42% | 11% | ↓ Variance significantly stabilized, meaning more predictable latency under load. |
+| **Throughput (req/sec)** | 133 req/s | 260 req/s | ↑ System throughput nearly doubled due to concurrent backend processing. |
+| **Failed Requests (%)** | 6.5% | 0.3% | ↓ Error rate almost eliminated after introducing traffic balancing. |
+| **CPU Utilization (per instance)** | ~95–100% (single node) | ~55–65% (per node, 2 replicas) | ↓ Load evenly distributed across replicas, avoiding CPU saturation. |
+| **Network Latency (avg)** | 78 ms | 43 ms | ↓ Reduced network wait times between client and backend. |
+| **Scalability Behavior** | Linear degradation under stress | Stable performance across replicas | ↑ Horizontal scalability achieved via load distribution. |
+| **System Availability** | Degraded under concurrent load | Sustained at 99%+ | ↑ Improved reliability and uptime under concurrent access. |
+
+### Summary
+
+The **Load Balancer pattern** successfully mitigated the initial performance bottleneck by distributing incoming traffic evenly across multiple backend instances.  
+Post-deployment metrics confirm measurable improvements in **response time**, **throughput**, and **scalability tolerance**, fulfilling the **Performance and Scalability** quality objectives for the Analytics Backend.
+
 
 
 ### Caching

@@ -16,20 +16,21 @@
 
 ### System Vulnerability Overview
 
-In prototype 3, Rootly exposes the `rootly-apigateway` directly to the Internet after applying the Reverse Proxy pattern. While network segmentation prevents direct access to internal microservices, the API Gateway remains a **single point of failure** against volumetric layer-7 attacks:
+In prototype 3, after implementing the reverse proxy pattern, the reverse proxy is exposed to the internet as the sole entry point. The API gateway and internal microservices are relocated to a private network segment, preventing any direct external access. However, while the reverse proxy provides basic rate-limiting protection, it lacks advanced Web Application Firewall (WAF) capabilities—such as ModSecurity with the OWASP Core Rule Set (CRS)—leaving the system vulnerable to sophisticated Layer 7 attacks, including SQL injection, cross-site scripting (XSS), and distributed denial-of-service (DDoS) attacks.
 
 iimagencitaaa
 
 ### Core Weakness: Lack of Application-Layer Shielding
 
 1. **Reverse proxy without deep inspection**  
-   NGINX acts as a reverse proxy but only forwards traffic. It cannot detect anomalous bursts or OWASP Top 10 signatures.
+   NGINX acts as a reverse proxy but only forwards traffic.It does not provide deep packet inspection or payload analysis capabilities.
 
 2. **No centralized rate limiting**  
    The API Gateway or microservices would need to enforce limits, yet a distributed attack can coordinate thousands of IPs (bots) to bypass per-IP throttling.
 
 3. **Full exposure of the entry point**  
-   The single public endpoint can be saturated by tens of thousands of malicious HTTP requests (for example, `POST /graphql` with heavy payloads).
+   The architecture exposes a single public endpoint —the reverse proxy— as the system’s only ingress.
+   Without additional layers such as a WAF, this design introduces a single point of failure (SPOF).
 
 ### Security Implications
 
@@ -45,7 +46,7 @@ iimagencitaaa
 
 ### Scenario Elements
 
-<img width="1452" height="417" alt="Captura de pantalla 2025-11-09 210820" src="https://github.com/user-attachments/assets/f1b2ce4a-aad6-4943-8fca-5e00a7dbfd4d" />
+<img width="1452" height="417" alt="Captura de pantalla 2025-11-09 210820" src="../images/WAFPattern.png" />
 
 
 ### 1. Artifact
@@ -136,7 +137,7 @@ These measurements will be captured before and after applying the WAF pattern to
 | **Threat** | Adversary or malicious driver. | **Distributed botnet focused on denial of service:** Coordinated bot networks capable of rotating IPs, headers, and traffic shapes to bypass basic checks, aiming to exhaust resources and trigger downtime. |
 | **Attack** | Sequence of actions exploiting the vulnerability. | **Multi-vector layer-7 DDoS:** 1) Endpoint discovery, 2) bursts of tens of thousands of requests per minute with valid payloads, 3) “low & slow” requests to tie up workers, 4) continuous rotation of User-Agent/IP to evade simple blocks. |
 | **Risk** | Probability of exploitation × impact. | **Gateway crash and SLA degradation:** High likelihood that the botnet maxes out gateway CPU/threads, leading to 502/503 errors, lost availability for legitimate users, and potential loss of customer trust. |
-| **Countermeasure** | Architectural/implementation action mitigating the risk. | **Web Application Firewall pattern:** Introduce `waf-rootly` ahead of the gateway with CRS rules, adaptive rate limiting, temporary blacklists, payload inspection, and centralized telemetry to detect and block denial attempts before they reach backend services. |
+| **Countermeasure** | Architectural/implementation action mitigating the risk. | **Web Application Firewall pattern:** Introduce `rootly-waf` ahead of the gateway with CRS rules, adaptive rate limiting, temporary blacklists, payload inspection, and centralized telemetry to detect and block denial attempts before they reach backend services. |
 
 ---
 

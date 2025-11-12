@@ -496,7 +496,163 @@ Shows the hierarchical breakdown of the system into functional modules, clarifyi
 
 ## Security
 ### Network Segmentation
+# Security Quality Attribute Scenario: Network Segmentation Pattern Implementation and Validation
+
+## Quality Attribute Scenario
+
+### Scenario Elements
+
+<img src="quality-scenario.png" alt="Quality Attribute Scenario" width="1000"/>
+
+### 1. Artifact
+
+**Critical Backend Components:** All system services and data stores that must remain internal and protected. This includes:
+- **API Gateway** (`api-gateway`): Central routing and orchestration service
+- **All Microservices** (`be-*`): Backend business logic services
+- **All Databases** (`db-*`): PostgreSQL and InfluxDB instances
+- **Message Broker**: Kafka queue system (`queue-data-ingestion`)
+- **Storage Layers** (`stg-*`): MinIO object storage
+
+### 2. Source
+
+An **External Malicious Actor** (individual or automated bot) originating from the **public Internet** (i.e., outside the defined internal network boundary).
+
+**Actor Characteristics:**
+- **Knowledge Level**: Network scanning expertise
+- **Tools**: Port scanners (nmap), HTTP clients (curl), database clients (psql)
+- **Intent**: Unauthorized access to internal services and data
+- **Origin**: External public network, outside the trusted perimeter
+
+### 3. Stimulus
+
+The actor executes a series of network probes: **Direct External Connection Attempts** to specific, known internal service ports. The attempts (via tools like `cURL`, `psql`) target host ports potentially mapped to backend components (e.g., 8080, 5432, 8000-8003). 
+
+**Specific Attack Actions:**
+1. **Network Reconnaissance**: Port scanning to discover exposed services
+2. **Service Fingerprinting**: Identifying service types and versions
+3. **Direct Connection Attempts**: Bypassing the frontend to access backend services directly
+4. **Database Access Attempts**: Attempting to connect to exposed database ports
+
+The focus is on **any traffic originating from outside the trusted internal network segment**.
+
+### 4. Environment
+
+The system is under **Normal Operation** with its **Current Network Configuration**. This configuration can be either:
+
+#### Pre-Segmentation (Baseline)
+The network configuration (e.g., single, flat Docker network) results in unintended port exposures to the host interface. In this state:
+- All services share a single Docker network
+- Multiple backend services have host port mappings
+- External attackers can potentially discover and access internal services
+- No network-level isolation between public and private components
+
+#### Post-Segmentation (Validation)
+The architecture utilizes the **Network Segmentation Pattern** (Public/Private isolated networks) where:
+- Services are distributed across two isolated networks
+- **No host port mappings** exist for backend services
+- Only the frontend has external access
+- Backend services communicate exclusively via the private network
+
+### 5. Response
+
+The network infrastructure must **Process the External Connection Request** directed at the internal component. The network layer's response will be one of three outcomes:
+
+1. **Connection Granted (Success)**: A TCP/IP connection is successfully established
+   - Attacker gains direct access to the internal service
+   - Can potentially bypass application-level authentication
+   - Represents a breach of the network perimeter
+
+2. **Connection Refused (Denial)**: An immediate rejection occurs due to no process listening or firewall rules
+   - No service is listening on the requested port
+   - Port mapping does not exist
+   - Represents successful network isolation
+
+3. **Timeout (Denial)**: No response is received within the standard time limit
+   - Traffic is dropped by firewall or routing rules
+   - Represents partial security measure
+
+The system/network tools must accurately **Log the Network Access Outcome** for every external attempt, enabling measurement and validation.
+
+### 6. Response Measure
+
+The system's security is validated by the total count of established connections, which represents a successful breach of the network perimeter:
+
+**Primary Metric:**
+$$\text{Total Successful External Connections} = \sum_{i=1}^{n} \text{Granted Connection}_i$$
+
+Where:
+- $n$ = total number of connection attempts to internal services
+- Each $\text{Granted Connection}_i \in \{0, 1\}$ (0 = denied, 1 = granted)
+
+**Measurement Details:**
+- **Testing Period**: One complete test suite run targeting all internal service ports
+- **Target Ports**: All ports used by backend services (8080, 8000-8003, 5432, 8082, etc.)
+- **Success Criteria**: Connection establishment (HTTP 200 response, database connection, etc.)
+
+**Performance Target:**
+
+| Environment | Target Value | Interpretation |
+|-------------|--------------|----------------|
+| Pre-Segmentation (Baseline) | > 0 (Expected: 5-8) | Vulnerability present - attack surface exposed |
+| Post-Segmentation (Goal) | **= 0** | **Security objective achieved** - complete network isolation |
+
+**Interpretation:**
+- **Count = 0**: Network segmentation is effective - no external access to internal services
+- **Count > 0**: Security failure - at least one internal service is accessible from external networks, regardless of application-level authorization status
+
+This metric directly measures the effectiveness of the network perimeter and validates whether the Network Segmentation Pattern successfully implements the **Limit Access** security tactic.
+
+### Six Key Security Concepts in the Scenario
+
+| Concept | Definition | Description in Rootly's Scenario (Pre-Segmentation) |
+| :--- | :--- | :--- |
+| **Weakness** | A design flaw or inherent system susceptibility. | **Flat Network Architecture:** All services (Frontend, API Gateway, Database) are deployed on a single shared network segment. This lack of logical separation facilitates unauthorized discovery and lateral movement within the network, allowing an attacker who compromises one entry point to access other critical services. |
+| **Vulnerability** | The specific path or condition that allows a threat to materialize or exploit a weakness. | **Direct Backend Port Exposure:** Since all services are on the same host, an attacker who discovers the host's public IP can perform a port scan and potentially discover unauthenticated ports of sensitive backend services (e.g., API Gateway on port 8080) that were not designed for direct public consumption. |
+| **Threat** | The agent or motivation that executes the attack. | **External Malicious Actor/Automated Bot:** An individual or script originating from the public internet, actively probing the host's public IP to find accessible services and exploit vulnerabilities. This type of threat seeks breaches in the security perimeter. |
+| **Attack** | The sequence of actions performed by the threat to exploit the vulnerability. | **Network Reconnaissance and Direct Service Access:** The attacker executes an **Nmap scan** on the host's public IP to list all open ports. Subsequently, they attempt a direct connection or unauthorized API call (e.g., using `curl`) to a backend port, completely bypassing the Frontend's security checks. |
+| **Risk** | The probability that a threat exploits a weakness, causing a negative impact, considering the severity of the damage and the probability of occurrence. | **Data Leakage, Manipulation, and Service Disruption:** The primary risk is a high-impact **Data Breach** with high probability of occurrence, resulting in loss of **Confidentiality** (data exposed), **Integrity** (data modified or corrupted), and **Availability** (services saturated and unavailable). This can lead to operational shutdown of the system and cause severe reputational damage to the plant monitoring platform. |
+| **Countermeasure** | The architectural or implementation action taken to mitigate the risk. | **Network Segmentation Pattern:** Implementation of a **`rootly-public-network`** and a **`rootly-private-network`**. By removing port mappings from all backend components (API Gateway, backend services, databases, message queues, and storage systems) and isolating them exclusively on the private network, the direct access vulnerability is eliminated. The attacker can only reach the Frontend, which acts as a controlled single point of entry. All backend services, including authentication backends, analytics services, data processing services, PostgreSQL databases, InfluxDB, MinIO storage, and Kafka queues, are now completely inaccessible from external networks, protected by network-level isolation. |
+
+### Countermeasure: Network Segmentation Pattern
+
+The Network Segmentation Pattern mitigates this security scenario by implementing a defense-in-depth strategy that isolates backend services from external access through:
+
+- Public/Private Network Isolation: Creating separate rootly-public-network and rootly-private-network
+
+- Port Mapping Elimination: Removing all host port mappings from backend services
+
+- Single Entry Point: Only frontend service remains publicly accessible
+
+- Internal Network Communication: Backend services communicate exclusively via private network
+
+This approach implements the "Limit Access" security tactic by ensuring external attackers cannot directly reach internal services, forcing all traffic through the authenticated frontend gateway.
+
+
+
+### Comparative Security Assessment
+
+
+| Metric | Pre-Segmentation | Post-Segmentation | Improvement |
+|--------|------------------|-------------------|-------------|
+| **Total Successful External Connections** | 5+ (Vulnerable) | 0 (Target Achieved) | 100% |
+| **Exposed Attack Surfaces** | 8+ ports | 1 port (frontend only) | 87.5% reduction |
+| **API Gateway Direct Access** | ✓ Connection successful | ✗ Connection refused | Blocked |
+| **Backend Services Access** | ✓ Connection successful | ✗ Connection refused | Blocked |
+| **Database Direct Access** | ✓ Connection possible | ✗ Connection refused | Critical vulnerability eliminated |
+| **Admin Interfaces Exposure** | ✓ Accessible | ✗ Connection refused | Blocked |
+| **Authentication Bypass Possible** | Yes | No | Security control enforced |
+
+
+### Security Outcome
+
+The Network Segmentation Pattern successfully transformed the system from a vulnerable flat architecture to a secured segmented architecture, achieving the primary security objective of zero successful external connections to internal services while maintaining full internal functionality.
+
+**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: **[Network Segmentation Pattern Documentation](https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/network_segmentation/README.md)**
+
+---
 ### Secure Channel
+
+---
 ### Reverse Proxy
 
 ![Reverse proxy flood scenario](images/reverse_proxy_sceneryP3.png)
@@ -520,8 +676,6 @@ Shows the hierarchical breakdown of the system into functional modules, clarifyi
 | **After reverse proxy** | Proxy sheds overflow (HTTP 429), forwards only bounded traffic to the gateway via the HTTP/REST connector, keeping services responsive. | P95 latency <300 ms, forwarded RPS capped (~200–300), <2% 5xx, high `429` count evidencing throttling. |
 
 ---
-
-
 ### Web Application Firewall
 ![Web Application Firewall scenario](images/WAFPatternScenario.png)
 

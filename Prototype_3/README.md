@@ -498,6 +498,27 @@ Shows the hierarchical breakdown of the system into functional modules, clarifyi
 ### Network Segmentation
 ### Secure Channel
 ### Reverse Proxy
+
+![Reverse proxy flood scenario](images/reverse_proxy_sceneryP3.png)
+
+**Scenario snapshot.** Rootly previously exposed the `api-gateway` directly to mobile/web clients, so every HTTP/REST call from `fe-mobile` travelled unthrottled over the same connector that serves the rest of the platform. This weakness let a threat actor (e.g., botnet or runaway integration) launch a flood attack that exploited the vulnerability of unbounded ingress, overwhelming the gateway and producing the risk of widespread downtime for farm operators. The attack itself is a high-concurrency burst targeting popular routes, which leads to resource exhaustion. The countermeasure is a reverse proxy that rate-limits, caches, and observes ingress before it reaches critical services.
+
+- **Weakness:** `api-gateway` exposed without edge filtering or caching.
+- **Threat:** Automated scraper or botnet capable of sustained HTTP floods.
+- **Attack:** Thousands of concurrent REST calls hammer `/api/*` endpoints to starve resources.
+- **Risk:** Legitimate telemetry and analytics sessions fail (timeouts/5xx) during surges.
+- **Vulnerability:** Unbounded ingress path lets excess traffic propagate to every backend.
+- **Countermeasure:** Reverse proxy inserted between `fe-mobile` (and WAF) and `api-gateway`, enforcing HTTP/REST throttling, caching hot responses, and centralizing traffic inspection.
+
+**Countermeasure focus.** The `reverse-proxy` becomes the only public HTTP/REST connector. `fe-mobile` now traverse ` reverse-proxy → api-gateway`, while `api-gateway` remains on a private network. Rate limiting (per IP/per route), burst absorption, and lightweight caching inside the proxy keep forwarded RPS within safe bands, so the gateway and downstream services maintain SLA even when the proxy is busy returning `429` responses to abusive sources. Full implementation details live in the dedicated documentation: [Reverse Proxy Scenario](reverse_proxy/README.md).
+
+**Validation (before vs. after).**
+
+| State | Response | Response Metrics |
+| --- | --- | --- |
+| **Before reverse proxy** | `api-gateway` tries to serve every spike, saturates CPU, and propagates latency/timeouts to clients. | P95 latency >3 s under flood, backend RPS ≈ attack RPS (~1000), 20–40% 5xx, no `429` shedding. |
+| **After reverse proxy** | Proxy sheds overflow (HTTP 429), forwards only bounded traffic to the gateway via the HTTP/REST connector, keeping services responsive. | P95 latency <300 ms, forwarded RPS capped (~200–300), <2% 5xx, high `429` count evidencing throttling. |
+
 ### Web Application Firewall
 
 ## Performance and Scalability

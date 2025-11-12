@@ -14,14 +14,14 @@ This indicated a performance saturation point caused by **uneven request distrib
 ## **2. Quality Attribute Scenario**
 
 ![Scenario](../images/scLoadBalancerP3.png)
-During peak usage, approximately **4,000 HTTP requests were sent within 30 seconds** from multiple external clients accessing the `/graphql_analytics` endpoint. Forwarded all requests directly to a single backend instance, causing **increased response times, uneven workload distribution, and CPU saturation**.  Although the system remained functional, **response time variance and throughput degradation** became evident as concurrency grew beyond ~3,000 users, exposing limitations in scalability and responsiveness.
+During peak usage, approximately **4,000 HTTP requests were sent within 1 or 2 seconds** (to simulate concurrency) from multiple external clients accessing the `/graphql_analytics` endpoint. Forwarded all requests directly to a single backend instance, causing **increased response times, uneven workload distribution, and CPU saturation**.  Although the system remained functional, **response time variance and throughput degradation** became evident as concurrency grew beyond ~3,000 users, exposing limitations in scalability and responsiveness.
 
 
 | **Element** | **Description** |
 |--------------|-----------------|
 | **Artifact** | Analytics Backend — GraphQL analytics endpoint |
 | **Source** | Multiple external users concurrently sending analytics requests |
-| **Stimulus** | 4000 HTTP requests generated within a 30-second interval |
+| **Stimulus** | 4000 HTTP requests generated within a 2-second interval |
 | **Environment** | Normal operation under synthetic load testing |
 | **Response** | System processes all requests, logging latency and HTTP status outcomes |
 | **Response Measure** | Primary metrics: Response time variance (%) and failed request rate per test period |

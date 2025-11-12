@@ -649,10 +649,10 @@ This approach implements the "Limit Access" security tactic by ensuring external
 
 The Network Segmentation Pattern successfully transformed the system from a vulnerable flat architecture to a secured segmented architecture, achieving the primary security objective of zero successful external connections to internal services while maintaining full internal functionality.
 
-**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: **[Network Segmentation Pattern Documentation](https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/network_segmentation/README.md)**
+**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: **[Network Segmentation Pattern Documentation](network_segmentation/README.md)**
 
 ---
-### Secure Channel
+## Secure Channel
 
 ## Verification – Comparative Analysis
 
@@ -666,7 +666,7 @@ The Network Segmentation Pattern successfully transformed the system from a vuln
 (https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/secure_channel/README.md)**
 
 ---
-### Reverse Proxy
+## Reverse Proxy
 
 ### Scenario Elements
 
@@ -755,7 +755,6 @@ The **Reverse Proxy Pattern** establishes a guarded ingress path:
 - `reverse-proxy` is the only service exposed publicly; `api-gateway` resides on a private network and is reachable solely through the proxy.
 - The HTTP/REST connector between `fe-mobile` and the backend now includes rate limiting, burst controls, and optional caching to keep forwarded RPS within safe envelopes.
 - Observability improves because every external HTTP request is logged in one place, accelerating detection and response.
-- Detailed configuration, validation scripts, and metrics live in the [Reverse Proxy Scenario Documentation](reverse_proxy/README.md).
 
 ### Validation – Before vs. After
 
@@ -837,7 +836,7 @@ Quantitative validation confirms a **substantial improvement in availability and
 # Performance and Scalability
 ## Load Balancer
 
-![Scenario](../images/scLoadBalancerP3.png)
+![Scenario](images/scLoadBalancerP3.png)
 During peak usage, approximately **4,000 HTTP requests were sent within 1 or 2 seconds** (to simulate concurrency) from multiple external clients accessing the `/graphql_analytics` endpoint. Forwarded all requests directly to a single backend instance, causing **increased response times, uneven workload distribution, and CPU saturation**.  Although the system remained functional, **response time variance and throughput degradation** became evident as concurrency grew beyond ~3,000 users, exposing limitations in scalability and responsiveness.
 
 
@@ -852,7 +851,7 @@ During peak usage, approximately **4,000 HTTP requests were sent within 1 or 2 s
 
 ### Baseline Load Test (Before Load Balancer)
 
-![baseline-performance](../images/sin_lbGraphql_analytics_performance.png)
+![baseline-performance](images/sin_lbGraphql_analytics_performance.png)
 
 ### Countermeasure Implementation: Load Balancer Pattern
 
@@ -865,7 +864,7 @@ The configuration applied included:
 
 ###  Implementation Load Balancer Results**
 
-![post-lb-performance](../images/con_lbGraphql_analytics_performance_avg_3iter.png)
+![post-lb-performance](images/con_lbGraphql_analytics_performance_avg_3iter.png)
 
 ### Performance Metrics Comparison
 
@@ -885,7 +884,7 @@ The configuration applied included:
 The **Load Balancer pattern** successfully mitigated the initial performance bottleneck by distributing incoming traffic evenly across multiple backend instances.  
 Post-deployment metrics confirm measurable improvements in **response time**, **throughput**, and **scalability tolerance**, fulfilling the **Performance and Scalability** quality objectives for the Analytics Backend.
 
-
+**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: [Load Balancer Scenario](load%20balancer/load_balancer.md)
 
 ### Caching
 

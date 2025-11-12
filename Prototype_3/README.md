@@ -508,7 +508,7 @@ Shows the hierarchical breakdown of the system into functional modules, clarifyi
 - **Attack:** Thousands of concurrent REST calls hammer `/api/*` endpoints to starve resources.
 - **Risk:** Legitimate telemetry and analytics sessions fail (timeouts/5xx) during surges.
 - **Vulnerability:** Unbounded ingress path lets excess traffic propagate to every backend.
-- **Countermeasure:** Reverse proxy inserted between `fe-mobile` (and WAF) and `api-gateway`, enforcing HTTP/REST throttling, caching hot responses, and centralizing traffic inspection.
+- **Countermeasure:** Reverse proxy inserted between `fe-mobile` and `api-gateway`, enforcing HTTP/REST throttling, caching hot responses, and centralizing traffic inspection.
 
 **Countermeasure focus.** The `reverse-proxy` becomes the only public HTTP/REST connector. `fe-mobile` now traverse ` reverse-proxy → api-gateway`, while `api-gateway` remains on a private network. Rate limiting (per IP/per route), burst absorption, and lightweight caching inside the proxy keep forwarded RPS within safe bands, so the gateway and downstream services maintain SLA even when the proxy is busy returning `429` responses to abusive sources. Full implementation details live in the dedicated documentation: [Reverse Proxy Scenario](reverse_proxy/README.md).
 

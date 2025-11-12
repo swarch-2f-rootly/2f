@@ -43,7 +43,7 @@ Finally, users can access all this information through an intuitive interface, a
 # Architectural Structures
 ## Components and Connector Structure
 ### Components and Connector view
-![component-and-connector-view](images/C&C_View_Prototype2.png)
+![component-and-connector-view](images/CyCP3.png)
 
 ---
 
@@ -55,18 +55,6 @@ Finally, users can access all this information through an intuitive interface, a
   - Protocols: **HTTPS**
   - Relations: Consumes `fe-web` via HTTPS
 
-- **Frontend Mobile (fe-mobile)**
-  - Type: Mobile client application
-  - Responsibility: Provides a mobile-optimized interface consuming backend APIs directly via REST.
-  - Protocols: **HTTP/REST**
-  - Relations: Consumes `reverse-proxy` via HTTP/REST
-
-- **Microcontroller Device**
-  - Type: External IoT/embedded device
-  - Responsibility: Collects and sends sensor and plant data
-  - Protocols: **HTTP/REST**
-  - Relations: Consumes `lb-data-ingestion` via HTTP/REST
-
 - **External Microcontroller Device**
   - Type: External IoT/embedded device
   - Responsibility: Collects and sends sensor and plant data
@@ -75,7 +63,19 @@ Finally, users can access all this information through an intuitive interface, a
 
 ---
 
-### Internal Components (Edge/Network)
+### Internal Components 
+
+- **Frontend Mobile (fe-mobile)**
+  - Type: Mobile client application
+  - Responsibility: Provides a mobile-optimized interface consuming backend APIs directly via REST.
+  - Protocols: **HTTP/REST**
+  - Relations: Consumes `reverse-proxy` via HTTP/REST
+ 
+- **Microcontroller Device**
+  - Type: External IoT/embedded device
+  - Responsibility: Collects and sends sensor and plant data
+  - Protocols: **HTTP/REST**
+  - Relations: Consumes `lb-data-ingestion` via HTTP/REST
 
 - **WAF**
   - Type: Security Firewall / Edge Service
@@ -371,7 +371,7 @@ The deployment structure reveals several key architectural patterns:
 
 ### Layered view
 
-![Layer-view](Layer_view_Prototype2.png)
+![Layer-view](images/TiersP3.png)
 
 ** **Layered view  - Layers** The structure of the logic layer is shown below to avoid redundancy in the main view. In general, each component follows the same structure.
 

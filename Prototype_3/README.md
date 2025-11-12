@@ -662,8 +662,8 @@ The Network Segmentation Pattern successfully transformed the system from a vuln
 | **Response Measure** |  |  |
 
 
-**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: **[Secure Channel Pattern Documentation]
-(https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/secure_channel/README.md)**
+**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: **[Secure Channel Pattern Documentation](secure_channel/README.md)**
+
 
 ---
 ## Reverse Proxy
@@ -829,7 +829,7 @@ This countermeasure mitigates the initial weakness by adding an **intelligent fi
 The implementation of the **WAF pattern** effectively mitigates application-layer denial-of-service attacks by intercepting and filtering malicious requests before they reach the API Gateway.  
 Quantitative validation confirms a **substantial improvement in availability and latency stability**, transforming the system from a single-point-of-failure exposure to a resilient, monitored, and adaptive traffic control plane.
 
-**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: [Web Application Firewall (WAF) Scenario](Web%20Application%20Firewall)
+**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: [Web Application Firewall (WAF) Documentation](Web%20Application%20Firewall)
 
 ---
 
@@ -884,9 +884,9 @@ The configuration applied included:
 The **Load Balancer pattern** successfully mitigated the initial performance bottleneck by distributing incoming traffic evenly across multiple backend instances.  
 Post-deployment metrics confirm measurable improvements in **response time**, **throughput**, and **scalability tolerance**, fulfilling the **Performance and Scalability** quality objectives for the Analytics Backend.
 
-**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: [Load Balancer Scenario](load%20balancer/load_balancer.md)
+**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: [Load Balancer Documentation](load%20balancer/load_balancer.md)
 
-### Caching
+## Caching
 
 ## Verification – Comparative Analysis
 

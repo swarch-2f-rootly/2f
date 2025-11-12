@@ -373,7 +373,7 @@ The deployment structure reveals several key architectural patterns:
 
 ![Layer-view](images/TiersP3.png)
 
-** **Layered view  - Layers** The structure of the logic layer is shown below to avoid redundancy in the main view. In general, each component follows the same structure.
+**Layered view  - Layers** The structure of the logic layer is shown below to avoid redundancy in the main view.
 
 ### Layer Specifications
 - **Layer T1 – Presentation Layer**
@@ -499,7 +499,7 @@ Shows the hierarchical breakdown of the system into functional modules, clarifyi
 
 ### Scenario Elements
 
-<img src="quality-scenario.png" alt="Quality Attribute Scenario" width="1000"/>
+![component-and-connector-view](images/scNetworkSegmentationP3.png)
 
 ### 1. Artifact
 
@@ -654,8 +654,17 @@ The Network Segmentation Pattern successfully transformed the system from a vuln
 ---
 ### Secure Channel
 
+## Verification – Comparative Analysis
+
+| Aspect | **Before Secure Channel** | **After Secure Channel** |
+|--------|-------------------------------------|------------------------------------|
+| **Response** | | |
+| **Response Measure** |  |  |
+
+
 **💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: **[Secure Channel Pattern Documentation]
 (https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/secure_channel/README.md)**
+
 ---
 ### Reverse Proxy
 
@@ -672,12 +681,12 @@ The Network Segmentation Pattern successfully transformed the system from a vuln
 
 **Countermeasure focus.** The `reverse-proxy` becomes the only public HTTP/REST connector. `fe-mobile` now traverse ` reverse-proxy → api-gateway`, while `api-gateway` remains on a private network. Rate limiting (per IP/per route), burst absorption, and lightweight caching inside the proxy keep forwarded RPS within safe bands, so the gateway and downstream services maintain SLA even when the proxy is busy returning `429` responses to abusive sources. Full implementation details live in the dedicated documentation: [Reverse Proxy Scenario](reverse_proxy/README.md).
 
-**Validation (before vs. after).**
+## Verification – Comparative Analysis
 
-| State | Response | Response Metrics |
-| --- | --- | --- |
-| **Before reverse proxy** | `api-gateway` tries to serve every spike, saturates CPU, and propagates latency/timeouts to clients. | P95 latency >3 s under flood, backend RPS ≈ attack RPS (~1000), 20–40% 5xx, no `429` shedding. |
-| **After reverse proxy** | Proxy sheds overflow (HTTP 429), forwards only bounded traffic to the gateway via the HTTP/REST connector, keeping services responsive. | P95 latency <300 ms, forwarded RPS capped (~200–300), <2% 5xx, high `429` count evidencing throttling. |
+| Aspect | **Before reverse proxy** | **After reverse proxy** |
+|--------|-------------------------------------|------------------------------------|
+| **Response** |`api-gateway` tries to serve every spike, saturates CPU, and propagates latency/timeouts to clients. |Proxy sheds overflow (HTTP 429), forwards only bounded traffic to the gateway via the HTTP/REST connector, keeping services responsive. |
+| **Response Measure** |  P95 latency >3 s under flood, backend RPS ≈ attack RPS (~1000), 20–40% 5xx, no `429` shedding. | P95 latency <300 ms, forwarded RPS capped (~200–300), <2% 5xx, high `429` count evidencing throttling. |
 
 ---
 ### Web Application Firewall
@@ -711,6 +720,8 @@ By placing the WAF (`rootly-waf`) in front of the reverse proxy and API Gateway,
 
 This countermeasure mitigates the initial weakness by adding an **intelligent filtering and control mechanism** at the network edge, transforming a passive reverse proxy into an active protection layer capable of handling complex, distributed attacks. Full implementation details live in the dedicated documentation: [Web Application Firewall (WAF) Scenario](Web%20Application%20Firewall).
 
+## Summary
+
 ## Verification 
 
 | Aspect | **Before WAF (Reverse Proxy Only)** | **After WAF (WAF Pattern Applied)** |
@@ -718,16 +729,30 @@ This countermeasure mitigates the initial weakness by adding an **intelligent fi
 | **Response** | Reverse proxy forwards all requests directly to API Gateway, causing overload and unresponsiveness. | WAF inspects and blocks malicious traffic, forwarding only legitimate requests to API Gateway. |
 | **Response Measure** | API Gateway latency > 5 s, 502/503 errors after ~30 s, availability < 60%. | Latency increase < 20%, ≥ 95% malicious traffic blocked, availability > 99%, no mass 502/503 errors. |
 
-## Summary
-
 The implementation of the **WAF pattern** effectively mitigates application-layer denial-of-service attacks by intercepting and filtering malicious requests before they reach the API Gateway.  
 Quantitative validation confirms a **substantial improvement in availability and latency stability**, transforming the system from a single-point-of-failure exposure to a resilient, monitored, and adaptive traffic control plane.
 
 ---
 
 ## Performance and Scalability
-### Load Balancers
+### Load Balancer
+
+## Verification – Comparative Analysis
+
+| Aspect | **Before Load Balancer** | **After Load Balancer** |
+|--------|-------------------------------------|------------------------------------|
+| **Response** | | |
+| **Response Measure** |  |  |
+
+
 ### Caching
+
+## Verification – Comparative Analysis
+
+| Aspect | **Before Caching** | **After Caching** |
+|--------|-------------------------------------|------------------------------------|
+| **Response** | | |
+| **Response Measure** |  |  |
 
 ---
 # Prototype – Deployment Instructions

@@ -683,8 +683,8 @@ This approach implements the "Limit Access" security tactic by ensuring external
 
 | Aspect | **Before Network segmentation** | **After  Network segmentation** |
 |--------|-------------------------------------|------------------------------------|
-| **Response** | | |
-| **Response Measure** |  |  |
+| **Response** |Connection granted to API Gateway, backend services, and databases |Connection refused for all internal services |
+| **Response Measure** |**5+ successful external connections** to internal services  |**0 successful external connections** to internal services  |
 
 The Network Segmentation Pattern successfully transformed the system from a vulnerable flat architecture to a secured segmented architecture, achieving the primary security objective of zero successful external connections to internal services while maintaining full internal functionality.
 

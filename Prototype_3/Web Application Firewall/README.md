@@ -1,4 +1,4 @@
-# Security Quality Attribute Scenario: Web Application Firewall (WAF) Pattern for Layer 7 Dos Mitigation
+# Security Quality Attribute Scenario: Web Application Firewall (WAF) Pattern for Layer 7 DDoS Mitigation
 
 ## Table of Contents
 
@@ -157,7 +157,7 @@ wrk -t4 -c50 -d30s http://<PUBLIC_HOST>:8080/health
 
 **Expected result**: ~1500 req/s, p99 latency < 120 ms, no errors.
 
-### Phase 2: Layer-7 Dos Attack
+### Phase 2: Layer-7 DDoS Attack
 
 1. **Expensive GraphQL burst**
 
@@ -192,32 +192,39 @@ hping3 --flood --url http://<PUBLIC_HOST>:8080/api/v1/auth/login --data 512
 
 ---
 
-## Validation Results (Post-WAF) *(Por ejecutar)*
+## Analysis of Results: Web Application Firewall (WAF) Scenario
 
-- Objetivo: validar en entorno local con LocalStack que el WAF detecta y bloquea >95% de solicitudes maliciosas y mantiene la disponibilidad.  
-- Acciones pendientes:
-  1. Capturar métricas de carga base (`wrk`) sin WAF.  
-  2. Repetir ensayos tras habilitar `waf-rootly` y documentar latencias, throughput y ratio de bloqueos.  
-  3. Registrar auditorías (logs ModSecurity) como evidencia de la táctica `Detect Service Denial`.
+The graphical results illustrate how the implementation of a Web Application Firewall (WAF) effectively mitigates Layer 7 Denial of Service (DoS) attacks by filtering malicious requests before they reach the web application layer.
 
-grafiquitas
+The bar chart shows the percentage of traffic allowed by the WAF across eight test runs. Each bar represents one run (Test 1 to Test 8), with allowed traffic ranging from 0.23% to 0.80%. The consistently low percentages indicate that the WAF is blocking the vast majority of requests generated during the tests (over 99%), suggesting that most of the simulated traffic was identified as malicious or suspicious and effectively filtered before reaching the application.
 
-permitidas
-<img width="1500" height="750" alt="waf_allowed_percentage" src="https://github.com/user-attachments/assets/0fbb1ab4-c919-4e17-b5af-c2af66332101" />
+<p align="center">
+   <img width="700" height="500" alt="waf_allowed_percentage" src="https://github.com/user-attachments/assets/0fbb1ab4-c919-4e17-b5af-c2af66332101" />
+</p>
 
-bloqueadas
-<img width="1500" height="750" alt="waf_blocked_percentage" src="https://github.com/user-attachments/assets/5a1931cd-bb77-4adb-83c3-9ec9eb109eea" />
+The bar chart shows the percentage of traffic blocked by the WAF across eight test runs (Test 1–Test 8). In all runs, the WAF blocks between 99.20% and 99.77% of the requests, indicating that nearly all simulated traffic is classified as malicious or suspicious and successfully prevented from reaching the application.
 
-distribucion
-<img width="900" height="900" alt="waf_traffic_distribution" src="https://github.com/user-attachments/assets/6b46c9f6-41f5-454d-9135-19eeaffd8252" />
+<p align="center">
+   <img width="700" height="500" alt="waf_blocked_percentage" src="https://github.com/user-attachments/assets/5a1931cd-bb77-4adb-83c3-9ec9eb109eea" />
+</p>
 
----
+The pie chart shows the global distribution of traffic processed by the WAF during the attack scenario. Overall, **99.67%** of requests are **blocked**, while only **0.33%** are **allowed**. This indicates that almost all incoming traffic was classified as malicious or suspicious and successfully filtered, with only a very small fraction treated as legitimate.
 
-## Response to Quality Scenario *(En construcción)*
+<p align="center">
+   <img width="650" height="500" alt="waf_traffic_distribution" src="https://github.com/user-attachments/assets/6b46c9f6-41f5-454d-9135-19eeaffd8252" />
+</p>
 
-- Los elementos del escenario, métricas y evidencias se completarán una vez finalizada la validación post-WAF.  
-- Se reutilizará la métrica principal (`RQ ≥ 0.8`) y se incluirán capturas de las pruebas con LocalStack cuando estén disponibles.
+In summary, the WAF implementation enhances the system’s resilience against application-layer DoS attacks by maintaining stability, optimizing resource usage, and preserving service availability under hostile traffic conditions.
 
 ---
 
-**Estado actual**: documentación preliminar alineada con el patrón WAF y la táctica `Detect Service Denial`. Próximos pasos: concluir implementación, ejecutar pruebas con LocalStack y actualizar las secciones pendientes con resultados cuantitativos.
+## Response to Quality Scenario
+
+Following the deployment and testing of the Web Application Firewall (WAF), the traffic analysis confirms that the protection layer is effectively filtering application-layer attacks.
+
+Across all test runs, the WAF blocked between **99.20% and 99.77%** of incoming requests, with a global distribution of **99.67% blocked** versus **0.33% allowed**. This indicates that almost all traffic generated in the attack scenario was classified as malicious or suspicious and stopped before reaching the application gateway.
+
+While these charts focus on traffic distribution rather than end-to-end latency or throughput, the consistently high blocking rate demonstrates that the WAF strongly supports the system’s **availability** and **performance efficiency** under hostile traffic patterns. Future validation with LocalStack will extend this analysis with additional metrics (latency, successful legitimate throughput, and RQ calculations) to confirm consistent behavior across different deployment environments.
+
+
+---

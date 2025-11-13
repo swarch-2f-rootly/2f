@@ -165,8 +165,6 @@ Finally, users can access all this information through an intuitive interface, a
     - Produces processed results stored in `stg-data-processing` (data resource protocol).
     - Produces processed results stored in `db-data-processing` (data resource protocol).
 
----
-
 ### Internal Components (Data & Asynchronous)
 
 - **queue-data-ingestion**

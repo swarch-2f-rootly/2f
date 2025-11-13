@@ -893,14 +893,14 @@ Adopting the reverse proxy converted an unbounded ingress path into a controlled
 ![Web Application Firewall scenario](images/WAFPatternScenario.png)
 
 ### Scenario Snapshot
-In this scenario, the system faces a sustained Layer-7 DDoS attack targeting its public API endpoints.  
+In this scenario, the system faces a sustained **Layer-7 DoS attack** initiated by a single malicious client repeatedly sending legitimate-looking HTTP requests to its public API endpoints.  
 Initially, an NGINX reverse proxy acts as the only public entry point, forwarding all traffic to the API Gateway without deep inspection or rate limiting.  
 This design exposes the system to resource exhaustion, high latency, and loss of availability.  
 To mitigate this weakness, the **Web Application Firewall (WAF) pattern** is applied, introducing intelligent traffic inspection and rate control mechanisms that detect and block malicious requests while maintaining service performance for legitimate users.
 
 - **Weakness:** The system exposes a single public entry point through an NGINX reverse proxy that only forwards traffic to the API Gateway without deep inspection or centralized rate limiting.
-- **Threat:** A coordinated external botnet capable of generating large volumes of HTTP(S) requests that mimic legitimate behavior.
-- **Attack:** Layer-7 DDoS campaign combining high-frequency (`/graphql`, `/auth/login`) and “low-and-slow” requests to exhaust gateway worker pools and cause service degradation.
+- **Threat:** A malicious external client or automated script capable of generating a sustained stream of HTTP(S) requests that simulated legitimate traffic.
+- **Attack:**  A **Layer-7 DoS** attack that repeatedly targets exposed endpoints (e.g., `/graphql`, `/auth/login`), using continuous or “low-and-slow” requests to exhaust gateway worker pools and degrade performance.
 - **Risk:** The API Gateway becomes overloaded, producing 502/503 responses and blocking legitimate users. System availability and user experience deteriorate severely.
 - **Vulnerability:** Absence of application-layer protection and global throttling. The reverse proxy lacks mechanisms to identify and block abusive request patterns.
 - **Countermeasure:** Introduce a **Web Application Firewall (WAF)** in front of the reverse proxy/API Gateway to inspect, filter, and throttle malicious traffic before it reaches backend services.
@@ -926,11 +926,11 @@ This countermeasure mitigates the initial weakness by adding an **intelligent fi
 
 | Aspect | **Before WAF (Reverse Proxy Only)** | **After WAF (WAF Pattern Applied)** |
 |--------|-------------------------------------|------------------------------------|
-| **Response** | Reverse proxy forwards all requests directly to API Gateway, causing overload and unresponsiveness. | WAF inspects and blocks malicious traffic, forwarding only legitimate requests to API Gateway. |
-| **Response Measure** | API Gateway latency > 5 s, 502/503 errors after ~30 s, availability < 60%. | Latency increase < 20%, ≥ 95% malicious traffic blocked, availability > 99%, no mass 502/503 errors. |
+| **Response** | Reverse proxy forwards all requests directly to the API Gateway, allowing a single malicious client to overload the service and cause unresponsiveness. | WAF inspects and throttles abusive traffic, forwarding only legitimate requests to the API Gateway. |
+| **Response Measure** | API Gateway latency > 5 s, 502/503 errors after ~30 s, availability < 60%. | Latency increase < 20%, ≥ 95% of malicious requests blocked, availability > 99%, no 502/503 errors. |
 
-The implementation of the **WAF pattern** effectively mitigates application-layer denial-of-service attacks by intercepting and filtering malicious requests before they reach the API Gateway.  
-Quantitative validation confirms a **substantial improvement in availability and latency stability**, transforming the system from a single-point-of-failure exposure to a resilient, monitored, and adaptive traffic control plane.
+The implementation of the **WAF pattern** effectively mitigates **application-layer denial-of-service (DoS)** attacks by detecting and limiting malicious request patterns before they reach the API Gateway.  
+Quantitative validation confirms a **substantial improvement in availability and latency stability**, transforming the system from a single-point-of-failure exposure into a **resilient and adaptive traffic control plane**.
 
 **💡 Note on Architectural Pattern:** See the [WAF Pattern Documentation](Web%20Application%20Firewall/README.md) for Nginx configuration, mitigation strategy, and validation results.
 

@@ -39,7 +39,7 @@ These port mappings were originally intended for development and debugging conve
 
 ### Security Implications
 
-This architectural weakness creates three critical security vulnerabilities:
+This architectural weakness creates two critical security vulnerabilities:
 
 | Vulnerability | Description | Security Impact |
 |---------------|-------------|-----------------|
@@ -130,13 +130,13 @@ The network infrastructure must **Process the External Connection Request** dire
    - Can potentially bypass application-level authentication
    - Represents a breach of the network perimeter
 
-2. **Connection Refused (Denial)**: An immediate rejection occurs due to no process listening or firewall rules
+2. **Connection Refused (Denial)**: An immediate rejection occurs due to no process listening or filtering rules
    - No service is listening on the requested port
    - Port mapping does not exist
    - Represents successful network isolation
 
 3. **Timeout (Denial)**: No response is received within the standard time limit
-   - Traffic is dropped by firewall or routing rules
+   - Traffic is dropped by filtering or routing rules
    - Represents partial security measure
 
 The system/network tools must accurately **Log the Network Access Outcome** for every external attempt, enabling measurement and validation.
@@ -161,7 +161,7 @@ Where:
 
 | Environment | Target Value | Interpretation |
 |-------------|--------------|----------------|
-| Pre-Segmentation (Baseline) | > 0 (Expected: 5-8) | Vulnerability present - attack surface exposed |
+| Pre-Segmentation (Baseline) | > 0  | Vulnerability present - attack surface exposed |
 | Post-Segmentation (Goal) | **= 0** | **Security objective achieved** - complete network isolation |
 
 **Interpretation:**
@@ -317,9 +317,9 @@ curl -v http://192.168.1.10:8080/api/v1/health --max-time 5
 ```
 
 **Analysis**: 
-- ✗ **Connection succeeded** - API Gateway is accessible
-- ✗ **No authentication required** for direct access
-- ✗ **Frontend security bypassed** completely
+- **Connection succeeded** - API Gateway is accessible
+- **No authentication required** for direct access
+- **Frontend security bypassed** completely
 - **Successful External Connection Count: +1**
 
 #### Attack 2: Backend Analytics Service Access
@@ -350,9 +350,9 @@ psql -h 192.168.1.10 -p 5432 -U postgres
 ```
 
 **Result**: Database connection possible
-- ✗ **Critical vulnerability** - Direct database access
-- ✗ **Data confidentiality compromised**
-- ✗ **Potential for data manipulation**
+- **Critical vulnerability** - Direct database access
+- **Data confidentiality compromised**
+- **Potential for data manipulation**
 - **Successful External Connection Count: +1**
 
 #### Attack 5: Kafka UI Administrative Interface
@@ -371,11 +371,11 @@ curl -v http://192.168.1.10:8082/ --max-time 5
 
 | Service | Port | Access Result | Security Impact |
 |---------|------|---------------|-----------------|
-| Frontend | 3001 | Accessible | ✓ **Intended** - Public access required |
-| API Gateway | 8080 | Accessible | ✗ **CRITICAL** - Should be internal only |
-| Backend Services | 8000-8003 | Accessible | ✗ **HIGH** - Business logic exposed |
-| PostgreSQL | 5432 | Accessible | ✗ **CRITICAL** - Data exposure risk |
-| Kafka UI | 8082 | Accessible | ✗ **HIGH** - Admin interface exposed |
+| Frontend | 3001 | Accessible |  **Intended** - Public access required |
+| API Gateway | 8080 | Accessible | **HIGHC** - Should be internal only |
+| Backend Services | 8000-8003 | Accessible | **HIGH** - Business logic exposed |
+| PostgreSQL | 5432 | Accessible |  **CRITICAL** - Data exposure risk |
+| Kafka UI | 8082 | Accessible |  **HIGH** - Admin interface exposed |
 
 **Findings:**
 - The Docker firewall creates a **false sense of security**
@@ -658,7 +658,7 @@ curl -v http://192.168.1.10:8080/health --max-time 5
 curl: (7) Failed to connect to 192.168.1.10 port 8080 after 0 ms: Could not connect to server
 ```
 
-**Result: BLOCKED** ✓
+**Result: BLOCKED**
 - No process is listening on the host's port 8080
 - The API Gateway exists only on the private network
 - **Successful External Connection Count: 0** (was 1)
@@ -680,7 +680,7 @@ curl -v http://192.168.1.10:8000/health --max-time 5
 curl: (7) Failed to connect to 192.168.1.10 port 8000 after 0 ms: Could not connect to server
 ```
 
-**Result: BLOCKED** ✓
+**Result: BLOCKED**
 - The analytics backend is completely isolated on the private network
 - **Successful External Connection Count: 0** (was 1)
 
@@ -701,7 +701,7 @@ curl -v http://192.168.1.10:8001/health --max-time 5
 curl: (7) Failed to connect to 192.168.1.10 port 8001 after 0 ms: Could not connect to server
 ```
 
-**Result: BLOCKED** ✓
+**Result: BLOCKED**
 - The authentication service cannot be reached from outside
 - **Successful External Connection Count: 0** (was 1)
 
@@ -719,7 +719,7 @@ psql: error: connection to server at "192.168.1.10", port 5432 failed: Connectio
 	Is the server running on that host and accepting TCP/IP connections?
 ```
 
-**Result: BLOCKED** ✓
+**Result: BLOCKED**
 - The database is completely inaccessible from the external network
 - Critical data protection achieved
 - **Successful External Connection Count: 0** (was 1)
@@ -741,7 +741,7 @@ curl -v http://192.168.1.10:8082/ --max-time 5
 curl: (7) Failed to connect to 192.168.1.10 port 8082 after 0 ms: Could not connect to server
 ```
 
-**Result: BLOCKED** ✓
+**Result: BLOCKED**
 - Administrative interfaces are no longer exposed
 - **Successful External Connection Count: 0** (was 1)
 
@@ -770,12 +770,12 @@ The network segmentation pattern eliminates attack vectors through three key mec
 
 | Attack Vector | Pre-Segmentation | Post-Segmentation |
 |---------------|------------------|-------------------|
-| Direct API Gateway access (port 8080) | **VULNERABLE** - Connection succeeds | **BLOCKED** - Connection refused ✓ |
-| Direct backend service access (ports 8000-8003) | **VULNERABLE** - Connection succeeds | **BLOCKED** - Connection refused ✓ |
-| Direct database access (port 5432) | **CRITICAL VULNERABILITY** - Connection possible | **BLOCKED** - Connection refused ✓ |
-| Administrative interfaces (port 8082) | **VULNERABLE** - Web UI accessible | **BLOCKED** - Connection refused ✓ |
+| Direct API Gateway access (port 8080) | **VULNERABLE** - Connection succeeds | **BLOCKED** - Connection refused |
+| Direct backend service access (ports 8000-8003) | **VULNERABLE** - Connection succeeds | **BLOCKED** - Connection refused |
+| Direct database access (port 5432) | **CRITICAL VULNERABILITY** - Connection possible | **BLOCKED** - Connection refused |
+| Administrative interfaces (port 8082) | **VULNERABLE** - Web UI accessible | **BLOCKED** - Connection refused |
 | Number of exposed attack surfaces | **8+ ports exposed** | **1 port exposed (frontend only)** |
-| Bypass authentication possible? | **YES** - Direct backend access | **NO** - Must go through frontend ✓ |
+| Bypass authentication possible? | **YES** - Direct backend access | **NO** - Must go through frontend |
 
 ### Verification of Internal Communication (Functionality Preserved)
 
@@ -829,10 +829,10 @@ written to stdout
 ```
 
 **Analysis:** 
-- ✓ Connection succeeds using the service name `api-gateway`
-- ✓ Docker's internal DNS resolves this to a private IP (172.20.0.2)
-- ✓ Communication occurs entirely within the `rootly-private-network`
-- ✓ The API Gateway is accessible to authorized services (frontend) but invisible to external attackers
+- Connection succeeds using the service name `api-gateway`
+- Docker's internal DNS resolves this to a private IP (172.20.0.2)
+- Communication occurs entirely within the `rootly-private-network`
+- The API Gateway is accessible to authorized services (frontend) but invisible to external attackers
 
 #### Step 3: Verify Other Backend Services Connectivity
 
@@ -866,7 +866,7 @@ written to stdout
 {"status":"healthy","service":"authentication","version":"1.0.0"}
 ```
 
-**Result**: All connections succeed ✓
+**Result**: All connections succeed
 - Full internal network functionality is preserved across all services
 - Frontend can communicate with all backend services using Docker's internal DNS
 - No degradation in system functionality
@@ -882,12 +882,12 @@ This section demonstrates how the implementation of the Network Segmentation Pat
 
 | Scenario Element | Requirement | Implementation Response |
 |------------------|-------------|-------------------------|
-| **Artifact** | Protect critical backend components (API Gateway, Microservices, Databases, Message Broker, Storage) | ✓ All components isolated on private network with no external access |
-| **Source** | Defend against External Malicious Actors from public Internet | ✓ Network perimeter established - external actors cannot reach internal services |
-| **Stimulus** | Prevent Direct External Connection Attempts to internal service ports | ✓ All port mappings removed - no listening sockets on host for internal services |
-| **Environment** | Maintain Normal Operation under both Pre and Post-Segmentation configurations | ✓ System functionality preserved - internal communication verified |
-| **Response** | Network infrastructure must deny external connections while logging attempts | ✓ Connection refused responses logged for all external attempts |
-| **Response Measure** | Achieve Total Successful External Connections = 0 | ✓ **TARGET ACHIEVED** - All attacks blocked |
+| **Artifact** | Protect critical backend components (API Gateway, Microservices, Databases, Message Broker, Storage) | All components isolated on private network with no external access |
+| **Source** | Defend against External Malicious Actors from public Internet | Network perimeter established - external actors cannot reach internal services |
+| **Stimulus** | Prevent Direct External Connection Attempts to internal service ports | All port mappings removed - no listening sockets on host for internal services |
+| **Environment** | Maintain Normal Operation under both Pre and Post-Segmentation configurations | System functionality preserved - internal communication verified |
+| **Response** | Network infrastructure must deny external connections while logging attempts | Connection refused responses logged for all external attempts |
+| **Response Measure** | Achieve Total Successful External Connections = 0 | **TARGET ACHIEVED** - All attacks blocked |
 
 ### Quantitative Response Measure Achievement
 
@@ -899,12 +899,12 @@ $$\text{Total Successful External Connections (Post-Segmentation)} = 0$$
 
 | Service | Port | Pre-Segmentation Count | Post-Segmentation Count | Improvement |
 |---------|------|------------------------|-------------------------|-------------|
-| API Gateway | 8080 | 1 (Vulnerable) | 0 (Blocked) |  100% |
-| Backend Analytics | 8000 | 1 (Vulnerable) | 0 (Blocked) |  100% |
+| API Gateway | 8080 | 1 (Vulnerable) | 0 (Blocked) | 100% |
+| Backend Analytics | 8000 | 1 (Vulnerable) | 0 (Blocked) | 100% |
 | Backend Auth | 8001 | 1 (Vulnerable) | 0 (Blocked) | 100% |
 | PostgreSQL Database | 5432 | 1 (Vulnerable) | 0 (Blocked) | 100% |
 | Kafka UI | 8082 | 1 (Vulnerable) | 0 (Blocked) | 100% |
-| **TOTAL** | - | **5+** | **0** | ✓ **100%** |
+| **TOTAL** | - | **5+** | **0** | **100%** |
 
 **Interpretation:**
 - **Pre-Segmentation Baseline**: 5+ successful external connections (vulnerability present)

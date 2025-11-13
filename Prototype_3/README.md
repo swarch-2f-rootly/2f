@@ -652,7 +652,7 @@ The Network Segmentation Pattern successfully transformed the system from a vuln
 ---
 ## Secure Channel
 
-![Secure Channel Scenario](secure_channel/images/secure_channel.png)
+![Secure Channel Scenario](images/secure_channel.png)
 
 ### 1. Artifact
 

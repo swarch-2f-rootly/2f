@@ -1,4 +1,4 @@
-# Security Quality Attribute Scenario: Web Application Firewall (WAF) Pattern for Layer 7 DDoS Mitigation
+# Security Quality Attribute Scenario: Web Application Firewall (WAF) Pattern for Layer 7 DoS Mitigation
 
 ## Table of Contents
 
@@ -90,8 +90,7 @@ The system operates under normal conditions, but we contrast two configurations:
 
 - `rootly-waf` positioned in front of the gateway with CRS + custom rules.  
 - Dynamic rate limiting per IP, route, and payload size.  
-- Structured logging and unified metrics (blocked requests, anomaly scores).  
-- Integration with LocalStack WAFv2 for automated testing.
+- Structured logging and unified metrics (blocked requests, anomaly scores).
 
 ### 5. Expected Response
 
@@ -157,7 +156,7 @@ wrk -t4 -c50 -d30s http://<PUBLIC_HOST>:8080/health
 
 **Expected result**: ~1500 req/s, p99 latency < 120 ms, no errors.
 
-### Phase 2: Layer-7 DDoS Attack
+### Phase 2: Layer-7 DoS Attack
 
 1. **Expensive GraphQL burst**
 
@@ -182,13 +181,16 @@ hping3 --flood --url http://<PUBLIC_HOST>:8080/api/v1/auth/login --data 512
 
 ---
 
-## Countermeasure Implementation *(Pendiente de ejecución)*
+## Countermeasure Implementation
 
-- **Patrón propuesto**: Web Application Firewall (`waf-rootly` delante del `rootly-apigateway`).  
-- **Táctica**: `Detect Attacks` → `Detect Service Denial`.  
-- **Entorno de pruebas**: LocalStack con soporte de WAFv2 (`awslocal wafv2 create-web-acl …`).  
-
-> **Estado actual**: Scripts de aprovisionamiento en preparación. Hay que integrar el contenedor WAF en `docker-compose.yml`, aplicar reglas CRS + personalizadas y automatizar la asociación del WebACL simulado a los endpoints del prototipo.
+- **Patrón aplicado**: Servicio `rootly-waf` (Nginx + ModSecurity con OWASP CRS) delante del reverse proxy interno.  
+- **Topología**: el WAF expone 80/443 en `rootly-public-network`, termina TLS (certificados autogenerados en desarrollo) y reenvía tráfico permitido hacia `reverse-proxy` en `rootly-private-network`.  
+- **Reglas**: combinación de CRS y reglas personalizadas (`modsecurity/custom-rules.conf`) con:
+  - Listas blanca/negra basadas en archivos.  
+  - Auto-bloqueo por puntaje de anomalía (`ip.blocked`) y contadores por endpoint (`/api/v1/plants`, `/api/v1/auth/login`, etc.).  
+  - Limitación de peticiones por zona (`limit_req` en `nginx.conf`) para distintos grupos de rutas.  
+- **Observabilidad**: registros centralizados (`access.log`, `error.log`, `modsecurity/audit.log`) y métricas derivadas de los resultados de `wrk`.  
+- **Automatización**: script `rootly-deploy/scripts/run-waf-loadtest.sh` ejecuta escenarios `wrk`, recopila artefactos en `rootly-deploy/loadtest-results/<timestamp>/` y genera resúmenes para auditoría.
 
 ---
 
@@ -216,7 +218,13 @@ The pie chart shows the global distribution of traffic processed by the WAF duri
 
 In summary, the WAF implementation enhances the system’s resilience against application-layer DoS attacks by maintaining stability, optimizing resource usage, and preserving service availability under hostile traffic conditions.
 
----
+Los datos detallados por run se resumen en `waf_summary.csv`. Un extracto:
+
+| Test | Total req | Bloqueadas | Permitidas | % Bloqueado | RPS |
+|------|-----------|------------|------------|-------------|-----|
+| Test 1 | 10,733 | 10,674 | 59 | 99.45% | 2,128 |
+| Test 4 | 54,342 | 54,083 | 259 | 99.52% | 1,793 |
+| Test 8 | 64,618 | 64,359 | 259 | 99.60% | 2,135 |
 
 ## Response to Quality Scenario
 
@@ -228,3 +236,12 @@ While these charts focus on traffic distribution rather than end-to-end latency 
 
 
 ---
+
+## Response to Quality Scenario
+
+La evidencia recopilada demuestra que el WAF cumple con los objetivos del escenario:
+
+- **Bloqueo**: 99.2%–99.8% del tráfico hostil filtrado antes de llegar al API Gateway.  
+- **Disponibilidad**: el gateway no presentó errores 502/503 durante las pruebas post-mitigación.  
+- **Experiencia legítima**: las peticiones permitidas mantuvieron latencias p75 inferiores a 50 ms (ver `wrk.txt`).  
+- **Observabilidad**: los logs del WAF registran la activación de reglas (`ruleId 1000131`, `1000104`, etc.) para auditoría.

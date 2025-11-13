@@ -121,7 +121,7 @@ The system must:
 
 | Property | Risk Pre-WAF | Severity |
 |----------|--------------|----------|
-| **Availability** | Complete gateway outage under coordinated bursts | Critical |
+| **Availability** | Gateway becomes unresponsive under sustained request bursts | Critical |
 | **Integrity** | Replayed payloads to exhaust resources | High |
 | **Confidentiality** | Large-scale scraping/enumeration attempts | Medium |
 

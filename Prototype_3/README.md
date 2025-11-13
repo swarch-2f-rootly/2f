@@ -652,16 +652,82 @@ The Network Segmentation Pattern successfully transformed the system from a vuln
 ---
 ## Secure Channel
 
-## Verification – Comparative Analysis
+![Secure Channel Scenario](secure_channel/images/secure_channel.png)
 
-| Aspect | **Before Secure Channel** | **After Secure Channel** |
-|--------|-------------------------------------|------------------------------------|
-| **Response** | | |
-| **Response Measure** |  |  |
+### 1. Artifact
 
+**Frontend Web Service (`fe-web`)**: The main entry point for user interaction, responsible for transmitting sensitive data (credentials, tokens, sensor payloads) between the browser and backend services.
 
-**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: **[Secure Channel Pattern Documentation](secure_channel/README.md)**
+### 2. Source
 
+**Network Attacker**: Any internal or external actor with access to the network (Wi-Fi, LAN, Docker bridge, etc.) capable of intercepting traffic between the browser and frontend.
+
+### 3. Stimulus
+
+The attacker uses packet capture tools (Wireshark, tcpdump) to intercept HTTP traffic, aiming to read credentials, tokens, and user data in plaintext.
+
+### 4. Environment
+
+#### Pre–Secure Channel (Baseline)
+- Communication between browser and frontend occurs over unencrypted HTTP.
+- All requests and responses are readable in transit.
+- Sensitive data is exposed to anyone with network access.
+
+#### Post–Secure Channel (Validation)
+- HTTPS/TLS is enforced for all browser–frontend communication.
+- All packets are encrypted; only TLS handshake and encrypted application data are visible.
+
+### 5. Response
+
+The system must ensure that all sensitive data in transit is protected from interception and tampering:
+- **Encryption:** All traffic is encrypted using TLS.
+- **Integrity:** Data cannot be modified without detection.
+- **Authentication:** Only trusted endpoints are accessible.
+
+### 6. Response Measure
+
+The effectiveness of the Secure Channel is measured by the number of readable packets containing sensitive data:
+
+| Metric                      | Pre–Secure Channel | Post–Secure Channel | Target      |
+|-----------------------------|--------------------|---------------------|-------------|
+| Readable packets/session    | ≥ 5                | 0                   | 0           |
+| Credentials exposed         | Yes                | No                  | No          |
+| Data tampering possible     | Yes                | No                  | No          |
+
+### Security Concepts Overview
+
+| Concept         | Description in Secure Channel Scenario                  |
+|-----------------|--------------------------------------------------------|
+| **Weakness**    | No encryption between browser and frontend             |
+| **Threat**      | Network attacker intercepts HTTP traffic               |
+| **Attack**      | Packet capture and analysis of sensitive data          |
+| **Risk**        | Data breach, credential theft, session hijacking       |
+| **Vulnerability**| Plaintext transmission of sensitive information       |
+| **Countermeasure**| Enforce HTTPS/TLS (Secure Channel Pattern)           |
+
+### Countermeasure: Secure Channel Pattern
+
+The Secure Channel Pattern mitigates the risk by:
+- Enforcing HTTPS/TLS for all browser–frontend communication.
+- Generating and installing TLS certificates for the frontend service.
+- Updating all endpoints and environment variables to use `https://`.
+- Validating that intercepted packets are encrypted and unreadable.
+
+### Validation – Before vs. After
+
+| Aspect                | Before Secure Channel           | After Secure Channel            |
+|-----------------------|---------------------------------|---------------------------------|
+| **Response**          | Attacker intercepts and reads all HTTP traffic | All traffic is encrypted; attacker cannot read data |
+| **Response Measure**  | Credentials, tokens, payloads exposed | No sensitive data exposed; only encrypted packets |
+| **Confidentiality**   | Compromised                     | Protected                       |
+| **Integrity**         | Vulnerable to tampering         | Protected by TLS                |
+| **Functionality**     | Normal operation                | Normal operation (no impact)    |
+
+### Summary
+
+Implementing the Secure Channel Pattern eliminates the exposure of sensitive data in transit, blocks credential theft and session hijacking, and preserves system functionality. All browser–frontend communication is now encrypted, fulfilling the security objective for data-in-transit protection.
+
+**💡 Note:** For technical details and visual evidence, see the [Secure Channel Pattern Documentation](secure_channel/README.md).
 
 ---
 ## Reverse Proxy
@@ -822,10 +888,10 @@ This countermeasure mitigates the initial weakness by adding an **intelligent fi
 | **Response** | Reverse proxy forwards all requests directly to API Gateway, causing overload and unresponsiveness. | WAF inspects and blocks malicious traffic, forwarding only legitimate requests to API Gateway. |
 | **Response Measure** | API Gateway latency > 5 s, 502/503 errors after ~30 s, availability < 60%. | Latency increase < 20%, ≥ 95% malicious traffic blocked, availability > 99%, no mass 502/503 errors. |
 
-The implementation of the **WAF pattern** effectively mitigates application-layer denial-of-service attacks by intercepting and filtering malicious requests before they reach the API Gateway.  
-Quantitative validation confirms a **substantial improvement in availability and latency stability**, transforming the system from a single-point-of-failure exposure to a resilient, monitored, and adaptive traffic control plane.
+La implementación del patrón **WAF** mitiga efectivamente los ataques de denegación de servicio a nivel de aplicación al interceptar y filtrar solicitudes maliciosas antes de que lleguen a la puerta de enlace API.  
+La validación cuantitativa confirma una **mejora sustancial en la disponibilidad y estabilidad de la latencia**, transformando el sistema de una exposición de punto único de falla a un plano de control de tráfico resiliente, monitoreado y adaptativo.
 
-**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: [Web Application Firewall (WAF) Documentation](Web%20Application%20Firewall)
+**💡 Nota sobre el Patrón Arquitectónico:** Para una revisión detallada del patrón documentado, consulte la documentación completa aquí: [Documentación del Firewall de Aplicaciones Web (WAF)](Web%20Application%20Firewall)
 
 ---
 

@@ -16,29 +16,29 @@
 
 ### System Vulnerability Overview
 
-In prototype 3, after implementing the reverse proxy pattern, the reverse proxy is exposed to the internet as the sole entry point. The API gateway and internal microservices are relocated to a private network segment, preventing any direct external access. However, while the reverse proxy provides basic rate-limiting protection, it lacks advanced Web Application Firewall (WAF) capabilities—such as ModSecurity with the OWASP Core Rule Set (CRS)—leaving the system vulnerable to sophisticated Layer 7 attacks, including SQL injection, cross-site scripting (XSS), and distributed denial-of-service (DDoS) attacks.
+In prototype 3, after implementing the reverse proxy pattern, the reverse proxy is exposed to the internet as the sole entry point. The API gateway and internal microservices are relocated to a private network segment, preventing any direct external access. However, while the reverse proxy provides basic rate-limiting protection, it lacks advanced Web Application Firewall (WAF) capabilities—such as ModSecurity with the OWASP Core Rule Set (CRS)—leaving the system vulnerable to application-layer (Layer 7) attacks, including SQL injection, cross-site scripting (XSS), and denial-of-service (DoS) attacks.
 
-iimagencitaaa
+---
 
 ### Core Weakness: Lack of Application-Layer Shielding
 
 1. **Reverse proxy without deep inspection**  
-   NGINX acts as a reverse proxy but only forwards traffic.It does not provide deep packet inspection or payload analysis capabilities.
+   NGINX acts as a reverse proxy but only forwards traffic. It does not perform deep packet inspection or payload analysis.
 
 2. **No centralized rate limiting**  
-   The API Gateway or microservices would need to enforce limits, yet a distributed attack can coordinate thousands of IPs (bots) to bypass per-IP throttling.
+   The API Gateway or microservices must enforce their own limits. A single malicious client can repeatedly send high-frequency requests or maintain long-lived connections, eventually exhausting gateway threads or CPU.
 
 3. **Full exposure of the entry point**  
-   The architecture exposes a single public endpoint —the reverse proxy— as the system’s only ingress.
-   Without additional layers such as a WAF, this design introduces a single point of failure (SPOF).
+   The architecture exposes a single public endpoint —the reverse proxy— as the system’s only ingress.  
+   Without additional protection such as a WAF, this design introduces a single point of failure (SPOF).
 
 ### Security Implications
 
 | Vulnerability | Description | Security Impact |
 |---------------|-------------|-----------------|
-| **Gateway resource exhaustion** | “Low & slow” or burst-style layer-7 DDoS targeting `/graphql` or `/auth/login` | **Availability**: the gateway crashes or severely degrades |
-| **Abuse of expensive requests** | Crafted GraphQL queries with deep recursion | **Integrity**: downstream services are forced to handle costly loads |
-| **Lack of centralized telemetry** | No unified visibility of blocked attempts or attack patterns | **Confidentiality (derivative)**: difficult to detect scraping or enumeration |
+| **Gateway resource exhaustion** | “Low & slow” or burst-style Layer-7 DoS targeting `/graphql` or `/auth/login`. | **Availability**: the gateway becomes unresponsive or crashes. |
+| **Abuse of expensive requests** | Crafted GraphQL queries with deep recursion or large payloads. | **Integrity**: downstream services are forced to handle costly loads. |
+| **Lack of centralized telemetry** | No unified visibility of blocked attempts or request anomalies. | **Confidentiality (derivative)**: difficult to detect scraping or enumeration. |
 
 ---
 
@@ -56,40 +56,39 @@ Components directly responsible for receiving, routing, and protecting HTTP/HTTP
 
 - **Reverse Proxy / API Gateway** (`rootly-apigateway` behind the current reverse proxy).  
 - **Proposed WAF service** (`rootly-waf`) acting as the pre-gateway inspection layer.  
-- **Supporting assets**: WAF rule sets, IP lists (allow/deny), centralized metrics and logging pipelines used to trigger automated countermeasures.
+- **Supporting assets**: WAF rule sets, IP allow/deny lists, centralized metrics and logging pipelines used to trigger automated countermeasures.
 
 ### 2. Source
 
-**Sophisticated External Botnet** (human-driven or automated) originating from the public internet:
+**Malicious External Client** originating from the public internet:
 
-- **Knowledge level**: advanced—aware of anti-bot heuristics and ways to bypass basic filters.  
-- **Tooling**: distributed attack frameworks (modified Slowloris/LOIC, custom scripts rotating IPs and User-Agent strings).  
+- **Knowledge level**: moderate to advanced—able to mimic legitimate request headers and payloads.  
+- **Tooling**: custom scripts or automated clients generating repetitive Layer-7 traffic (e.g., modified Slowloris, curl loops, load-test tools).  
 - **Intent**: degrade gateway availability and exhaust backend resources using valid-looking but abusive requests.  
-- **Origin**: multiple public networks and proxies outside the trusted perimeter.
+- **Origin**: single external host or a limited set of IP addresses outside the trusted perimeter.
 
 ### 3. Stimulus
 
-The source executes a coordinated layer-7 attack consisting of:
+The source executes a **Layer-7 DoS attack** consisting of:
 
-1. **Discovery and fingerprinting** of exposed endpoints (`/graphql`, `/api/v1/auth/login`).  
-2. **Generating bursts** of 10,000 requests per minute, alternating GET/POST methods with realistic headers and JSON payloads.  
-3. **Rotating IP addresses and User-Agent strings** to evade naive rate limiting.  
-4. **Launching “low & slow” waves** that keep connections open to exhaust worker pools.
+1. **Discovery and probing** of exposed endpoints (`/graphql`, `/api/v1/auth/login`).  
+2. **Continuous bursts** of HTTP requests using alternating GET/POST methods with realistic headers and JSON payloads.  
+3. **Sustained connection holding (“low & slow”)** to exhaust worker pools and keep threads occupied.  
 
 ### 4. Environment
 
-The system runs under normal operating conditions, yet we contrast two configurations:
+The system operates under normal conditions, but we contrast two configurations:
 
 #### Pre-Mitigation (Pre-WAF)
 
 - Basic reverse proxy exposes the API Gateway directly.  
 - No deep inspection or centralized throttling.  
 - Metrics and logs scattered across services, making correlation difficult.  
-- Burst handling relies solely on the gateway’s capacity.
+- Burst handling relies solely on the gateway’s processing capacity.
 
 #### Post-Mitigation (Post-WAF)
 
-- `waf-rootly` positioned in front of the gateway with CRS + custom rules.  
+- `rootly-waf` positioned in front of the gateway with CRS + custom rules.  
 - Dynamic rate limiting per IP, route, and payload size.  
 - Structured logging and unified metrics (blocked requests, anomaly scores).  
 - Integration with LocalStack WAFv2 for automated testing.
@@ -98,10 +97,10 @@ The system runs under normal operating conditions, yet we contrast two configura
 
 The system must:
 
-1. **Detect and block** ≥ 95% of malicious traffic.  
+1. **Detect and block or throttle** ≥ 95% of malicious requests.  
 2. **Maintain availability**, limiting average latency degradation to < 20%.  
 3. **Preserve legitimate user experience**, keeping error rate ≤ 1%.  
-4. **Log in real time** the attacking IPs, patterns, and triggered rules for auditing.
+4. **Log in real time** the attacking IPs, request patterns, and triggered rules for auditing.
 
 ### 6. Response Measure
 
@@ -113,8 +112,6 @@ The system must:
 - **Gateway availability** (healthy state, absence of mass 502/503).  
 - **RQ (Resilience Quotient)** = Legitimate throughput under attack / Nominal throughput (target ≥ 0.8).  
 - **Alert volume** from CRS and custom rules (count of critical activations).
-
-These measurements will be captured before and after applying the WAF pattern to demonstrate the countermeasure’s impact.
 
 ---
 
@@ -132,12 +129,12 @@ These measurements will be captured before and after applying the WAF pattern to
 
 | Concept | Definition | Description in Rootly’s Scenario (Pre-WAF) |
 |---------|------------|-------------------------------------------|
-| **Weakness** | Architectural flaw or inherent susceptibility. | **Unprotected public entry point:** The reverse proxy exposes the API Gateway directly with no inspection layer. There is no centralized filter to distinguish legitimate traffic from malicious bursts, so every request reaches the gateway. |
-| **Vulnerability** | Specific condition enabling exploitation. | **Critical endpoints without adaptive throttling:** Routes such as `/graphql` and `/api/v1/auth/login` accept high request volumes without detecting anomalous patterns or enforcing adaptive rate controls. |
-| **Threat** | Adversary or malicious driver. | **Distributed botnet focused on denial of service:** Coordinated bot networks capable of rotating IPs, headers, and traffic shapes to bypass basic checks, aiming to exhaust resources and trigger downtime. |
-| **Attack** | Sequence of actions exploiting the vulnerability. | **Multi-vector layer-7 DDoS:** 1) Endpoint discovery, 2) bursts of tens of thousands of requests per minute with valid payloads, 3) “low & slow” requests to tie up workers, 4) continuous rotation of User-Agent/IP to evade simple blocks. |
-| **Risk** | Probability of exploitation × impact. | **Gateway crash and SLA degradation:** High likelihood that the botnet maxes out gateway CPU/threads, leading to 502/503 errors, lost availability for legitimate users, and potential loss of customer trust. |
-| **Countermeasure** | Architectural/implementation action mitigating the risk. | **Web Application Firewall pattern:** Introduce `rootly-waf` ahead of the gateway with CRS rules, adaptive rate limiting, temporary blacklists, payload inspection, and centralized telemetry to detect and block denial attempts before they reach backend services. |
+| **Weakness** | Architectural flaw or inherent susceptibility. | **Unprotected public entry point:** The reverse proxy exposes the API Gateway directly without inspection or rate control. Every request, malicious or not, is passed downstream. |
+| **Vulnerability** | Specific condition enabling exploitation. | **Endpoints lacking adaptive throttling:** Routes such as `/graphql` and `/api/v1/auth/login` accept repeated requests without detecting abnormal frequency or connection patterns. |
+| **Threat** | Adversary or malicious driver. | **Single malicious client executing a denial-of-service attack:** A persistent source repeatedly targeting the system with crafted requests that consume server resources. |
+| **Attack** | Sequence of actions exploiting the vulnerability. | **Layer-7 DoS sequence:** 1) endpoint probing, 2) repetitive bursts or slow connections holding threads open, 3) resource exhaustion and latency spikes. |
+| **Risk** | Probability of exploitation × impact. | **Gateway overload and SLA degradation:** High likelihood that sustained request patterns from one attacker will saturate gateway CPU or worker threads, producing 502/503 errors and reducing availability. |
+| **Countermeasure** | Architectural/implementation action mitigating the risk. | **Web Application Firewall pattern:** Introduce `rootly-waf` ahead of the gateway with CRS rules, adaptive rate limiting, and payload inspection to detect and block single-source denial attempts before they reach backend services. |
 
 ---
 

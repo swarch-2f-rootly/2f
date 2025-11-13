@@ -344,7 +344,7 @@ The result is predictable interactions, easier evolution, and independent scalin
 ## Deployment Structure
 ### Deployment view
 
-![deployment-view](deployView.png)
+![deployment-view](images/DeployP3.png)
 
 ### Description of Architectural Elements and Relations
 

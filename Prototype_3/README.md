@@ -342,28 +342,71 @@ The result is predictable interactions, easier evolution, and independent scalin
 
 Based on the deployment view, the system's elements are allocated as follows:
 
-*   **Software Elements:** The core of the system resides in `Node 1`, where all services are deployed as Docker containers. This includes:
-    *   **Client Applications:** The `fe-ssr-web` (Web Frontend).
-    *   **API Gateway:** The `api-gateway` acts as the central communication hub.
-    *   **Backend Microservices:** A suite of specialized services for authentication (`be-authentication-and-roles`), analytics (`be-analytics`), data handling (`be-data-ingestion`, `be-data-processing`), and user/plant management (`be-user-plant-manager`).
-    *   **Support Services:** Asynchronous communication is managed by `queue-data-ingestion` (Kafka), and persistence is handled by dedicated database (`db-*`) and storage (`stg-*`) containers.
+*   **Software Elements:** The core of the system resides in `Node 1`, where all services are deployed as Docker containers within two network zones (public and private subnets). This includes:
+    
+    *   **WAF:** The `WAF` provides the first line of defense with deep packet inspection, SQL injection prevention, and DDoS mitigation.
+    
+    *   **Client Applications:** The `fe-ssr-web` (Next.js/TypeScript) provides server-side rendering for web clients, deployed in the public subnet.
+    
+    *   **API Gateway:** The `api-gateway` (Go) acts as the central orchestration layer, implementing authentication (JWT), rate limiting, and routing to backend microservices.
+    
+    *   **Backend Microservices:** Deployed in the private subnet with dedicated persistence:
+        *   `be-authentication-and-roles` (FastAPI/Python): Manages authentication and RBAC, connected to `db-authentication-and-roles` (PostgreSQL) and `stg-authentication-and-roles` (MiniIO).
+        *   `be-user-plant-manager` (FastAPI/Python): Handles user/plant CRUD operations, connected to `db-user-plant-management` (PostgreSQL).
+        *   `be-analytics` (FastAPI/Python with Pandas, multiple instances): Performs statistical analysis and aggregations, connected to `db-analytics` (PostgreSQL with TimescaleDB extension) and `stg-analytics` (MiniIO) for query caching, load-balanced by `lb-analytics`.
+        *   `be-data-ingestion` (Go, multiple instances): Receives IoT sensor data and publishes to Kafka, load-balanced by `lb-data-ingestion`.
+        *   `be-data-processing` (Python with Kafka Consumer, multiple instances): Consumes from Kafka, transforms and validates data, writes to `db-data-processing` (InfluxDB).
+    
+    *   **Asynchronous Communication Services:**
+        *   `queue-data-ingestion` (Apache Kafka with Zookeeper): Provides asynchronous event streaming backbone with persistent storage in `stg-queue-data-ingestion`.
 
 *   **Environmental Elements:**
-    *   **Node 1 (Server Cluster):** A physical or virtual server that hosts the Docker environment, running all the containerized software elements on a shared internal network.
-    *   **Node 2 (Mobile Client):** A physical device (e.g., a smartphone) running the `fe-mobile` application.
-    *   **Node 3 (IoT Device):** A physical microcontroller deployed in the field to collect data.
+    
+    *   **LAN (Shared Network):** A Local Area Network infrastructure that interconnects all three nodes, providing the foundational communication layer for the entire system. The LAN enables seamless connectivity between physical devices (Node 3), mobile clients (Node 2), and the server cluster (Node 1).
+    
+    *   **Node 1 (Server Cluster):** A physical or virtual server hosting the Docker environment with two network segments:
+        *   **Public Subnet (DMZ):** Contains WAF, reverse proxy, `fe-ssr-web`, and `api-gateway`, exposing controlled access to external clients.
+        *   **Private Subnet:** Contains all backend microservices, databases, message queue, and load balancers, isolated from direct external access. Services communicate via the internal Docker bridge network (`rootly-private-network`).
+    
+    *   **Node 2 (Mobile Client):** A physical device (smartphone/tablet running iOS/Android) executing the `fe-mobile` application (React Native), which communicates with Node 1 over the LAN via HTTPS.
+    
+    *   **Node 3 (IoT Device):** A physical microcontroller (ESP32-based), equipped with environmental sensors (temperature, humidity, soil moisture, light, pH), transmitting telemetry data in JSON format over the LAN to Node 1.
 
 *   **Relations (Network Communication):**
-    *   **External Communication:** The `fe-mobile` (Node 2) and `microcontroller` (Node 3) communicate with services in Node 1 over the same LAN network. The mobile app connects to the `api-gateway`, while the microcontroller sends data directly to `be-data-ingestion`.
-    *   **Internal Communication:** Inside Node 1, all containers communicate securely over a private Docker network (`rootly-network`). The `fe-ssr-web` and `api-gateway` interact, and the gateway routes requests to the appropriate backend microservices, which in turn connect to their databases or the message queue.
+    
+    *   **LAN Connectivity:** All three nodes are connected through the same LAN infrastructure, enabling both external client access and IoT device communication with the centralized backend.
+    
+    *   **External Communication (User Traffic):**
+        *   `fe-mobile` (Node 2) → WAF  → `api-gateway` → Backend microservices
+        *   External web browsers → WAF  → `fe-ssr-web`
+        *   All external traffic passes through the WAF security layer before reaching internal services.
+    
+    *   **External Communication (IoT Traffic):**
+        *   `microcontroller` (Node 3) → `lb-data-ingestion` → `be-data-ingestion` (multiple instances) → `queue-data-ingestion`
+        *   IoT traffic bypasses the WAF for low-latency direct communication with the data ingestion pipeline.
+    
+    *   **Internal Communication (Private Subnet):**
+        *   All containers within Node 1 communicate over the private Docker bridge network (`rootly-private-network`) using internal DNS resolution.
+        *   `api-gateway` routes requests to backend services based on endpoint mappings:
+            *   Authentication endpoints → `be-authentication-and-roles`
+            *   User/plant management → `be-user-plant-manager`
+            *   Analytics queries → `lb-analytics` → `be-analytics` instances
+        *   Backend services connect to their dedicated databases and storage layers using internal container names.
+        *   Load balancers (`lb-analytics`, `lb-data-ingestion`) distribute traffic across multiple service instances with health checks and failover.
+    
+    *   **Asynchronous Data Flow:**
+        *   `be-data-ingestion` → `queue-data-ingestion` (Kafka) → `be-data-processing` → `db-data-processing` → `db-analytics`
+        *   Kafka provides temporal decoupling, message persistence, and replay capabilities for high-throughput sensor data streams.
 
 ### Description of Architectural Patterns Used
 
 The deployment structure reveals several key architectural patterns:
 
-*   **Event-Driven (Message Broker):** The `queue-data-ingestion` (Kafka) container decouples the data ingestion and processing pipelines. This allows the system to handle high volumes of sensor data asynchronously and reliably.
-*   **Database per Service:** Each microservice has its own dedicated persistence container (e.g., `be-authentication-and-roles` has `db-authentication-and-roles` and `stg-authentication-and-roles`). This ensures data isolation and allows each service to evolve independently.
-*   **Containerization:** Every software component in Node 1 is deployed as a Docker container. This standardizes the deployment, simplifies dependency management, and ensures consistency across environments.
+*   **Event-Driven (Message Broker):** The `queue-data-ingestion` container decouples the data ingestion and processing pipelines. This allows the system to handle high volumes of sensor data asynchronously and reliably, enabling temporal decoupling and independent scaling of producers and consumers.
+
+*   **Database per Service:** Each microservice has its own dedicated persistence container (e.g., `be-authentication-and-roles` has `db-authentication-and-roles` and `stg-authentication-and-roles`). This ensures data isolation, schema autonomy, and allows each service to evolve independently. The only exception is `be-analytics`
+
+*   **Containerization:** Every software component in Node 1 is deployed as a container. This standardizes the deployment, simplifies dependency management, and ensures consistency across environments.
 
 
 ## Layered Structure

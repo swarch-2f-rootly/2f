@@ -369,66 +369,107 @@ The deployment structure reveals several key architectural patterns:
 
 ## Layered Structure
 
+The system architecture follows a **7-tier layered model**, designed to ensure modularity, scalability, and clear separation of concerns across presentation, communication, logic, and data management domains.  
+The **Border element (WAF)** is not considered part of the tiers but acts as a **security perimeter** protecting inbound traffic before it reaches the presentation tier.
+
 ### Layered view
 
-![Layer-view](images/TiersP3.png)
+![Layered-view](images/TiersP3.png)
 
 **Layered view  - Layers** The structure of the logic layer is shown below to avoid redundancy in the main view.
+---
 
-### Layer Specifications
-- **Layer T1 – Presentation Layer**
-  - Responsibility: Renders user interfaces and handles client-side logic
-  - Components: Mobile frontend (iOS/Android), Web frontend (browsers)
-  - Allowed dependencies: Only `T2` (synchronous communication)
-  - Communication style: Synchronous HTTP/REST APIs
-  - Constraint: Cannot bypass `T2` to reach lower layers
-- **Layer T2 – Synchronous Communication Layer**
-  - Responsibility: API gateway, request routing, and synchronous facade
-  - Capabilities: Request validation, authentication, rate limiting, throttling, routing, composition, and protocol translation
-  - Allowed dependencies: Only `T3`
-  - Communication style: Synchronous (HTTP/gRPC)
-  - Pattern: API Gateway routing pattern
-- **Layer T3 – Logic Layer**
-  - Responsibility: Core business logic and application functionality
-  - Allowed dependencies: Can access `T4` (Asynchronous Communication) and `T5` (Data).
-  - Synchronous services (request/response):
-    - `Authentication and Roles BE`
-    - `User Plant Management BE`
-    - `Analytics BE`
-  - Asynchronous services (producer/consumer with queues):
-    - `Data Ingestion BE` (producer): Receives and validates incoming data streams
-    - `Data Processing BE` (consumer): Processes queued data asynchronously
-- **Layer T4 – Asynchronous Communication Layer**
-  - Responsibility: Message queues and decoupling
-  - Component: `Queue Data Ingestion` as the messaging broker for the ingestion pipeline
-  - Capabilities: Reliable delivery, decoupling ingestion from processing, buffering during load peaks
-- **Layer T5 – Data Layer**
-  - Responsibility: Data persistence and storage management
-  - Datastores:
-    - `Authentication and Roles DB` and `STG Authentication and Roles`
-    - `User Plant Management DB` and `STG User Plant Management`
-    - `DB Data Processing` and `STG Data Processing`
+### **Border Element**
+
+- **Component:** Web Application Firewall (WAF)
+- **Responsibility:** Protects the system’s entry point by filtering and inspecting incoming HTTP traffic.
+- **Capabilities:** Layer-7 inspection, IP reputation filtering, rate limiting, DDoS mitigation, and reverse-proxy routing to the Presentation Layer.
+- **Communication flow:** Directs validated requests exclusively to Tier 1 (Presentation).
+
+---
+### **Layer Specifications**
+
+#### **Tier 1 – Presentation Layer**
+- **Responsibility:** Provides user interfaces and manages client-side logic.
+- **Components:** `fe-web`, `fe-mobile`
+- **Communication style:** Synchronous HTTP/REST
+- **Constraint:** Cannot access deeper tiers directly.
+
+---
+
+#### **Tier 2 – Limit Access Layer**
+- **Responsibility:** Acts as the access control point for frontend traffic.
+- **Components:** `reverse-proxy`
+- **Capabilities:** Request validation, routing, authentication, and enforcement of access rules.
+- **Communication style:** HTTP/HTTPS
+
+---
+
+#### **Tier 3 – Synchronous Communication Layer**
+- **Responsibility:** Manages synchronous request routing and API orchestration.
+- **Components:** `api-gateway`
+- **Capabilities:** Request aggregation, throttling, authentication, and routing.
+- **Communication style:** Synchronous HTTP/gRPC
+
+---
+
+#### **Tier 4 – Logic Layer**
+- **Responsibility:** Implements the system’s business logic and processing workflows.
+- **Components:**
+  - `be-authentication-and-roles`
+  - `be-user-plant-management`
+  - `be-analytics`
+- **Capabilities:** Core computation, orchestration, and validation.
+- **Communication style:** HTTP and message-based (Kafka, queues).
+
+---
+
+#### **Tier 5 – Distribution Layer**
+- **Responsibility:** Balances and distributes requests between backend services to optimize performance and redundancy.
+- **Components:** `lb-analytics`, `lb-data-ingestion`
+- **Capabilities:** Load balancing, health checks, and failover.
+
+---
+
+#### **Tier 6 – Asynchronous Communication Layer**
+- **Responsibility:** Handles event-driven communication and background processing.
+- **Components:**
+  - `be-data-ingestion` (producer)
+  - `be-data-processing` (consumer)
+- **Capabilities:** Asynchronous data ingestion, queue management, and event propagation.
+- **Communication style:** Kafka/Event Streaming
+
+---
+
+#### **Tier 7 – Data Layer**
+- **Responsibility:** Manages data persistence and storage across all domains.
+- **Datastores:**
+  - `db-authentication-and-roles`, `stg-authentication-and-roles`
+  - `db-user-plant-management`, `stg-user-plant-management`
+  - `db-data-processing`, `stg-data-processing`
+  - `db-caching`
+- **Capabilities:** Data durability, query optimization, and caching for improved performance.
+
 
 **Logic Layer Structure (Internal)**
-The diagram below illustrates the internal architecture of each microservice within the Logic Layer (T3). To maintain a clear separation of concerns and promote modularity, each service adopts a 4-layer architecture.
+The diagram below illustrates the internal architecture of each microservice within the Logic Layer. To maintain a clear separation of concerns and promote modularity, each service adopts a 4-layer architecture.
 
 ![Layer-logic-view](images/LayersLogicP3.png)
 
-### Architectural patterns
-1. **Layered Architecture (Within each microservice)**
+1. **Layered Architecture**
    Each microservice is internally structured into four distinct layers. This pattern ensures that responsibilities are clearly segregated, making the service easier to develop, test, and maintain. The dependencies flow in one direction, from the outer layers to the inner layers.
     -   **Layer 1: Adapters:** This outermost layer is responsible for protocol-specific communication. It adapts incoming requests (e.g., from Kafka consumers or other services) and translates them into a format that the application's core can understand.
     -   **Layer 2: Controllers:** This layer acts as the entry point for API requests (e.g., HTTP REST/GraphQL). It handles request validation, parsing, and calls the appropriate business logic in the Services layer.
     -   **Layer 3: Services:** This is the core of the microservice, containing the main business logic and orchestrating application operations. It is completely independent of the delivery mechanism (e.g., HTTP).
     -   **Layer 4: Models:** This innermost layer represents the application's data structures and domain entities. It is responsible for data access and persistence logic, interacting directly with the database.
 
-2.  **5-Tier Architecture Pattern**
-    The system is structured into five logical tiers, each with a distinct responsibility, creating a clear separation of concerns:
-    -   **Tier 1: Presentation:** The user-facing layer, which includes the web and mobile frontends. It is responsible for rendering the user interface and capturing user interactions.
-    -   **Tier 2: Synchronous Communication & Orchestration:** This tier is embodied by the `api-gateway`, which manages all synchronous (request-response) communication from the presentation layer to the backend.
-    -   **Tier 3: Logic:** This is the core of the application, containing the business logic implemented within the individual microservices (`be-authentication-and-roles`, `be-user-plant-management`, `be-analytics`, etc.).
-    -   **Tier 4: Asynchronous Communication:** This tier uses a message broker (`queue-data-ingestion` with Kafka) to decouple services and manage asynchronous data flows, particularly for data ingestion and processing.
-    -   **Tier 5: Data:** The persistence layer, which includes all databases and storage systems (`db-*`, `stg-*`) responsible for storing and managing data.
+### Architectural patterns
+
+- **7-Tier Architecture Pattern:**  
+  The system is logically divided into seven layers, each serving a distinct function — from presentation and routing to computation, distribution, asynchronous messaging, and data management.
+  
+- **Security Perimeter (Border):**  
+  The WAF acts as the first line of defense, inspecting and controlling traffic before it reaches the presentation layer.
 
 ## Decomposition Structure
 ### Decomposition View

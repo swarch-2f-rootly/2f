@@ -183,14 +183,14 @@ hping3 --flood --url http://<PUBLIC_HOST>:8080/api/v1/auth/login --data 512
 
 ## Countermeasure Implementation
 
-- **Patrón aplicado**: Servicio `rootly-waf` (Nginx + ModSecurity con OWASP CRS) delante del reverse proxy interno.  
-- **Topología**: el WAF expone 80/443 en `rootly-public-network`, termina TLS (certificados autogenerados en desarrollo) y reenvía tráfico permitido hacia `reverse-proxy` en `rootly-private-network`.  
-- **Reglas**: combinación de CRS y reglas personalizadas (`modsecurity/custom-rules.conf`) con:
-  - Listas blanca/negra basadas en archivos.  
-  - Auto-bloqueo por puntaje de anomalía (`ip.blocked`) y contadores por endpoint (`/api/v1/plants`, `/api/v1/auth/login`, etc.).  
-  - Limitación de peticiones por zona (`limit_req` en `nginx.conf`) para distintos grupos de rutas.  
-- **Observabilidad**: registros centralizados (`access.log`, `error.log`, `modsecurity/audit.log`) y métricas derivadas de los resultados de `wrk`.  
-- **Automatización**: script `rootly-deploy/scripts/run-waf-loadtest.sh` ejecuta escenarios `wrk`, recopila artefactos en `rootly-deploy/loadtest-results/<timestamp>/` y genera resúmenes para auditoría.
+- **Pattern applied**: `rootly-waf` service (Nginx + ModSecurity with OWASP CRS) positioned in front of the internal reverse proxy.  
+- **Topology**: the WAF exposes ports 80/443 on `rootly-public-network`, terminates TLS (self-signed certificates in development), and forwards allowed traffic to `reverse-proxy` on `rootly-private-network`.  
+- **Rules**: CRS combined with project-specific policies in `modsecurity/custom-rules.conf`, including:
+  - File-based allow/deny lists.  
+  - Automatic IP blocking using anomaly scores (`ip.blocked`) and per-endpoint counters (for `/api/v1/plants`, `/api/v1/auth/login`, etc.).  
+  - Nginx `limit_req` zones defined in `nginx.conf` to throttle distinct route groups.  
+- **Observability**: centralized logging (`access.log`, `error.log`, `modsecurity/audit.log`) plus metrics derived from each `wrk` execution.  
+- **Automation**: the script `rootly-deploy/scripts/run-waf-loadtest.sh` runs the load scenarios, stores artifacts in `rootly-deploy/loadtest-results/<timestamp>/`, and produces summaries for auditing.
 
 ---
 
@@ -216,12 +216,10 @@ The pie chart shows the global distribution of traffic processed by the WAF duri
    <img width="600" height="600" alt="waf_traffic_distribution" src="https://github.com/user-attachments/assets/6b46c9f6-41f5-454d-9135-19eeaffd8252" />
 </p>
 
-In summary, the WAF implementation enhances the system’s resilience against application-layer DoS attacks by maintaining stability, optimizing resource usage, and preserving service availability under hostile traffic conditions.
+In summary, the WAF implementation enhances the system’s resilience against application-layer DoS attacks by maintaining stability, optimizing resource usage, and preserving service availability under hostile traffic conditions. The detailed per-run metrics are captured in `waf_summary.csv`; a sample is shown below:
 
-Los datos detallados por run se resumen en `waf_summary.csv`. Un extracto:
-
-| Test | Total req | Bloqueadas | Permitidas | % Bloqueado | RPS |
-|------|-----------|------------|------------|-------------|-----|
+| Test | Total Requests | Blocked | Allowed | % Blocked | RPS |
+|------|----------------|---------|---------|-----------|-----|
 | Test 1 | 10,733 | 10,674 | 59 | 99.45% | 2,128 |
 | Test 4 | 54,342 | 54,083 | 259 | 99.52% | 1,793 |
 | Test 8 | 64,618 | 64,359 | 259 | 99.60% | 2,135 |
@@ -234,14 +232,11 @@ Across all test runs, the WAF blocked between **99.20% and 99.77%** of incoming 
 
 While these charts focus on traffic distribution rather than end-to-end latency or throughput, the consistently high blocking rate demonstrates that the WAF strongly supports the system’s **availability** and **performance efficiency** under hostile traffic patterns. Future validation with LocalStack will extend this analysis with additional metrics (latency, successful legitimate throughput, and RQ calculations) to confirm consistent behavior across different deployment environments.
 
-
 ---
 
-## Response to Quality Scenario
+## Additional Observations
 
-La evidencia recopilada demuestra que el WAF cumple con los objetivos del escenario:
-
-- **Bloqueo**: 99.2%–99.8% del tráfico hostil filtrado antes de llegar al API Gateway.  
-- **Disponibilidad**: el gateway no presentó errores 502/503 durante las pruebas post-mitigación.  
-- **Experiencia legítima**: las peticiones permitidas mantuvieron latencias p75 inferiores a 50 ms (ver `wrk.txt`).  
-- **Observabilidad**: los logs del WAF registran la activación de reglas (`ruleId 1000131`, `1000104`, etc.) para auditoría.
+- **Blocking effectiveness**: 99.2%–99.8% of hostile traffic was filtered before reaching the API Gateway.  
+- **Availability**: no 502/503 responses were observed during post-mitigation tests.  
+- **Legitimate experience**: allowed requests maintained p75 latency below 50 ms (see each `wrk.txt`).  
+- **Observability**: WAF logs captured rule activations (`ruleId 1000131`, `1000104`, etc.) for auditing.

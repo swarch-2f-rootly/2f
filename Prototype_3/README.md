@@ -94,10 +94,6 @@ Finally, users can access all this information through an intuitive interface, a
     - Receives data from `microcontroller-device` and `external-microcontroller-device`.
     - Routes traffic to `be-data-ingestion`.
 
----
-
-### Internal Components (Application/Logic)
-
 - **Frontend Mobile (fe-mobile)**
   - Type: Mobile client application
   - Responsibility: Provides a mobile-optimized interface consuming backend APIs directly via REST.

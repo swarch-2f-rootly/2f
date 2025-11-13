@@ -306,31 +306,28 @@ The result is predictable interactions, easier evolution, and independent scalin
 
 
 
-### Frontend and Backend Services
+## Components description
 
-| Component / Service | Port(s) | Responsibilities | Boundaries | Interfaces |
-|---|---|---|---|---|
-| **Frontend** | 3001 | Provides main user interface, real-time visualization of sensor data, dashboards, and plant/device management. | SPA executed in the browser, depends on the `api-gateway`. | Communicates via `api-gateway` using REST/GraphQL. |
-| **api-gateway** | 8080 | Central entry point for clients. Routes, aggregates, and authenticates API requests to backend microservices. | Orchestrates backend services; no business logic. | REST/GraphQL to clients; REST/GraphQL to backends. |
-| **be-authentication-and-roles** | 8001 | User authentication (login/logout), role-based access control (RBAC), JWT token management, user lifecycle. | Independent service with dedicated database; does not access sensor/plant data directly. | REST APIs for auth and roles. |
-| **be-user-plant-management** | 8003 | Manages plants, user-device associations, microcontroller lifecycle, enabling/disabling devices. | Specialized in domain entities (plants, devices); relies on auth service for user information. | REST APIs for CRUD on devices/plants. |
-| **be-analytics** | 8000 | Processes and analyzes sensor data, computes agricultural metrics, trend analysis. | Read-only access to sensor data; no modification of primary records; specialized in analytics. | REST/GraphQL APIs for reports and trends. |
-| **be-data-ingestion** | 8005 | Receives and ingests sensor data from microcontroller devices, validating and forwarding to the processing pipeline. | Single entry point for IoT data; ensures data integrity; does not perform advanced analytics. | HTTP endpoints for ingestion. |
-| **be-data-processing** | 8002 | Transforms, aggregates, and stores data received from ingestion queues. | Consumes from message queue and stores data. | Communicates via Kafka; provides data to other services. |
-
-
-### Databases and Storage
-
-| Component / Service | Port(s) | Description |
-|---|---|---|
-| **queue-data-ingestion** | 9092 (UI: 8082) | Kafka message broker for asynchronous event queue. |
-| **db-authentication-and-roles** | 5432 | PostgreSQL: `authentication_and_roles_db` with users, roles, permissions, sessions, and tokens. |
-| **db-user-plant-management** | 5433 | PostgreSQL: `user_plant_management_db` with user–plant–device associations. |
-| **db-data-processing** | 8086 | InfluxDB: `agricultural_data` bucket with processed measurements and historical metrics. |
-| **stg-authentication-and-roles** | 9002 (Console: 9003) | MinIO storage for profile photos. |
-| **stg-data-processing** | 9000 (Console: 9001) | MinIO storage for data files, backups, unstructured content. |
-| **stg-user-plant-management** | 9004 (Console: 9005) | MinIO storage for plant images. |
-
+| **Component / Service** | **Responsibilities** | **Boundaries** | **Interfaces** |
+|---|---|---|---|
+| **WAF (Web Application Firewall)** | Protects frontend and backend services from common web exploits and malicious traffic, filtering HTTP requests before reaching the application layer. | Positioned between the internet and the load balancer; operates independently from business logic. | Intercepts HTTP/S traffic; forwards allowed requests to load balancers. |
+| **Load Balancer** | Distributes incoming client and IoT requests across multiple backend service instances to ensure availability and scalability. | Logical boundary between clients (IoT devices) and backend services. | Uses HTTP/S and REST protocols to route traffic to the API gateway or ingestion endpoints. |
+| **Frontend** | Provides the main user interface for real-time visualization of sensor data, dashboards, and management of plants and devices. | Executed as a SPA in the user’s browser; depends on the `api-gateway`. | Communicates with the `api-gateway` using REST/GraphQL. |
+| **api-gateway** | Central entry point for all client interactions. Routes, aggregates, and authenticates API requests to backend microservices. | Coordinates backend communication; does not contain domain logic. | REST/GraphQL to clients; REST/GraphQL to backend services. |
+| **ms-authentication-and-roles** | Handles user authentication and authorization, managing JWT tokens, sessions, and role-based access control (RBAC). | Operates independently with its own database; does not directly interact with sensor or plant data. | REST APIs for authentication and role management. |
+| **ms-user-plant-management** | Manages user–plant–device relationships, device registration, and plant configurations. | Specialized in domain entities (plants, devices); consumes user info from the authentication service. | REST APIs for CRUD operations on plants and devices. |
+| **be-analytics** | Processes and analyzes historical sensor data, providing performance metrics, trend analyses, and reports. | Has read-only access to processed data; operates without modifying primary datasets. | REST/GraphQL APIs for analytics and reports. |
+| **be-data-ingestion** | Receives sensor data from IoT microcontrollers, validates input, and forwards it to the data processing pipeline. | Dedicated entry point for IoT device communication; ensures integrity and structure of incoming data. | HTTP endpoints for ingestion; interacts with Kafka for event publishing. |
+| **ms-data-processing** | Aggregates, transforms, and stores data from ingestion streams into the analytical databases. | Consumes messages from Kafka and persists structured data. | Kafka consumer; REST endpoints for service-to-service data delivery. |
+| **Microcontroller** | Collect environmental sensor data (e.g., temperature, humidity, soil metrics) and send it periodically to the backend. | Operate at the network edge; limited resources; communicate only with the ingestion endpoint. | HTTP requests or MQTT to the ingestion service. |
+| **queue-data-ingestion** | Kafka message broker enabling asynchronous communication between ingestion and processing services. | Shared middleware for decoupled data flow; ensures reliable message delivery. | Kafka topics and consumer APIs. |
+| **db-authentication-and-roles** | PostgreSQL database storing user credentials, roles, and session tokens. | Private data store for authentication service. | SQL queries via ORM; internal REST connections. |
+| **db-user-plant-management** | PostgreSQL database managing associations between users, plants, and devices. | Dedicated data store for plant and device domain logic. | SQL/ORM access; REST-based synchronization. |
+| **db-data-processing** | InfluxDB database storing time-series agricultural data and computed metrics. | Optimized for analytical queries and visualization. | InfluxQL/Flux queries; service-to-service API. |
+| **db-caching** | Redis in-memory database for caching user sessions, authentication tokens, and frequently accessed queries. | Shared fast-access layer to reduce latency across backend services. | Redis key-value operations via SDK. |
+| **stg-authentication-and-roles** | MinIO storage for user profile photos and access logs. | Attached to authentication service; persistent object storage. | S3-compatible API. |
+| **stg-data-processing** | MinIO storage for analytical data files, backups, and unstructured content. | Used by analytics and processing services. | S3-compatible API. |
+| **stg-user-plant-management** | MinIO storage for plant images and related documents. | Attached to user-plant management domain. | S3-compatible API. |
 ---
 
 ## Deployment Structure

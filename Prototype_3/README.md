@@ -1057,5 +1057,118 @@ The main configuration included:
 **💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: [Caching Documentation](caching/caching.md)
 
 ---
+
 # Prototype – Deployment Instructions
 
+## Requirements
+
+- [Docker](https://docs.docker.com/get-docker/)  
+- [Docker Compose](https://docs.docker.com/compose/install/)  
+- [Git](https://git-scm.com/downloads)  
+- Command-line console  
+
+## Installation Steps
+
+1. **Clone the repository** (if not already done)
+
+```bash
+git clone https://github.com/swarch-2f-rootly/rootlymobileapp.git
+git clone https://github.com/swarch-2f-rootly/rootly-ssr-frontend.git
+git clone https://github.com/swarch-2f-rootly/rootly-apigateway.git
+git clone https://github.com/swarch-2f-rootly/rootly-data-processing.git
+git clone https://github.com/swarch-2f-rootly/rootly-data-ingestion.git
+git clone https://github.com/swarch-2f-rootly/rootly-analytics-backend.git
+git clone https://github.com/swarch-2f-rootly/rootly-deploy.git
+git clone https://github.com/swarch-2f-rootly/rootly-user-plant-management-backend.git
+git clone https://github.com/swarch-2f-rootly/rootly-authentication-and-roles-backend.git
+git clone https://github.com/swarch-2f-rootly/rootly-microcontroller.git
+git clone https://github.com/swarch-2f-rootly/rootly-load-balancer-analytics.git
+git clone https://github.com/swarch-2f-rootly/rootly-load-balancer-ingestion.git
+git clone https://github.com/swarch-2f-rootly/rootly-waf.git
+```
+
+2. **Navigate to deployment directory**
+
+```bash
+cd rootly-deploy
+```
+
+3. **Run start script**
+
+```bash
+./start.sh
+```
+
+4. **Check service health**
+
+```bash
+docker-compose ps
+```
+
+## Service Endpoints
+
+Once started, the services will be available at:
+
+- **WAF**: http://localhost:80
+- **Load Balancer for Data Ingestion**: http://localhost:8080
+
+All the other components will have to be checked internally.
+
+## Development Commands
+
+### View Logs
+
+```bash
+# All services
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f be-analytics 
+```
+
+### Restart a Service
+
+```bash
+docker-compose restart be-analytics 
+```
+
+### Rebuild and Restart
+
+```bash
+docker-compose up --build -d be-analytics 
+```
+
+### Stop All Services
+
+```bash
+docker-compose down
+```
+
+### Clean Up (Removes Volumes)
+
+```bash
+docker-compose down -v
+```
+
+## Configuration
+
+### Environment Variables
+
+All configuration is handled through the `.env` files.
+
+### Networking
+
+All services communicate through the `rootly-network` Docker network:
+- Services can reach each other by container name
+- External access through published ports only
+
+### Volumes
+
+Persistent data is stored in named volumes.
+
+## Additional Resources
+
+- [InfluxDB Documentation](https://docs.influxdata.com/influxdb/)
+- [MinIO Documentation](https://min.io/docs/minio/linux/index.html)
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)

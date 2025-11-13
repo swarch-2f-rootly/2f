@@ -203,6 +203,17 @@ hping3 --flood --url http://<PUBLIC_HOST>:8080/api/v1/auth/login --data 512
   2. Repetir ensayos tras habilitar `waf-rootly` y documentar latencias, throughput y ratio de bloqueos.  
   3. Registrar auditorías (logs ModSecurity) como evidencia de la táctica `Detect Service Denial`.
 
+grafiquitas
+
+permitidas
+<img width="1500" height="750" alt="waf_allowed_percentage" src="https://github.com/user-attachments/assets/0fbb1ab4-c919-4e17-b5af-c2af66332101" />
+
+bloqueadas
+<img width="1500" height="750" alt="waf_blocked_percentage" src="https://github.com/user-attachments/assets/5a1931cd-bb77-4adb-83c3-9ec9eb109eea" />
+
+distribucion
+<img width="900" height="900" alt="waf_traffic_distribution" src="https://github.com/user-attachments/assets/6b46c9f6-41f5-454d-9135-19eeaffd8252" />
+
 ---
 
 ## Response to Quality Scenario *(En construcción)*

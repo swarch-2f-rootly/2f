@@ -213,7 +213,7 @@ The bar chart shows the percentage of traffic blocked by the WAF across eight te
 The pie chart shows the global distribution of traffic processed by the WAF during the attack scenario. Overall, **99.67%** of requests are **blocked**, while only **0.33%** are **allowed**. This indicates that almost all incoming traffic was classified as malicious or suspicious and successfully filtered, with only a very small fraction treated as legitimate.
 
 <p align="center">
-   <img width="650" height="500" alt="waf_traffic_distribution" src="https://github.com/user-attachments/assets/6b46c9f6-41f5-454d-9135-19eeaffd8252" />
+   <img width="600" height="600" alt="waf_traffic_distribution" src="https://github.com/user-attachments/assets/6b46c9f6-41f5-454d-9135-19eeaffd8252" />
 </p>
 
 In summary, the WAF implementation enhances the system’s resilience against application-layer DoS attacks by maintaining stability, optimizing resource usage, and preserving service availability under hostile traffic conditions.

@@ -324,8 +324,6 @@ The result is predictable interactions, easier evolution, and independent scalin
 
 ---
 
----
-
 ## Deployment Structure
 ### Deployment view
 
@@ -401,14 +399,10 @@ The deployment structure reveals several key architectural patterns:
 - **Capabilities:** Core computation, orchestration, and validation.
 - **Communication style:** HTTP and message-based (Kafka, queues).
 
----
-
 #### **Tier 4 – Distribution Layer**
 - **Responsibility:** Balances and distributes requests between backend services to optimize performance and redundancy.
 - **Components:** `lb-analytics`, `lb-data-ingestion`
 - **Capabilities:** Load balancing, health checks, and failover.
-
----
 
 #### **Tier 5 – Asynchronous Communication Layer**
 - **Responsibility:** Handles event-driven communication and background processing.
@@ -417,8 +411,6 @@ The deployment structure reveals several key architectural patterns:
   - `be-data-processing` (consumer)
 - **Capabilities:** Asynchronous data ingestion, queue management, and event propagation.
 - **Communication style:** Kafka/Event Streaming
-
----
 
 #### **Tier 6 – Data Layer**
 - **Responsibility:** Manages data persistence and storage across all domains.

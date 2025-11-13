@@ -216,7 +216,7 @@ In Rootly, Kafka acts as the broker: rootly-data-ingestion publishes sensor even
     The level architecture improves communication between components by separating responsibilities into tiers (physical) and layers (logical). It also has a hierarchy, since the upper layers depend on the lower ones.The levels establish clear boundaries and responsibilities for components to collaborate with each other, facilitating communication between components. The logical layers represent the internal structure of the components and internal dependencies.
 The result is predictable interactions, easier evolution, and independent scaling of responsibilities.
 
-### Architectural Elements & Relations 
+### Architectural Elements & Relations  
 
 #### **External Clients & Edge Services**
 
@@ -227,75 +227,84 @@ The result is predictable interactions, easier evolution, and independent scalin
 
 - **Mobile App (fe-mobile)**
   - Native mobile application for on-the-go monitoring and management.
-  - **Relation:** Connects to **reverse-proxy**.
+  - **Relation:** Connects to **WAF**.
 
 - **WAF (Web Application Firewall)**
-  - Security layer protecting the application from common web exploits.
-  - **Relation:** Sits between the **Web Browser** and **reverse-proxy**.
+  - Security boundary protecting the application from common web exploits (SQLi, XSS, CSRF).
+  - Filters and routes incoming HTTP requests to internal network components.
+  - **Relation:** Forwards traffic to the **api-gateway** through the secure network path.
 
-- **Reverse Proxy (reverse-proxy)**
-  - Handles initial traffic routing, load distribution, and potentially SSL termination.
-  - **Relation:** Receives traffic from **WAF** and **Mobile App**; forwards requests to **API Gateway**.
+---
 
 #### **Frontend Services**
 
 - **Frontend Web (fe-web)**
-  - User interface built with React + TypeScript; displays metrics and dashboards.
-  - **Relation:** Consumes services via the **WAF** / **Reverse Proxy** path.
+  - User interface built with React + TypeScript; displays dashboards, device states, and analytics.
+  - **Relation:** Consumes services via the **WAF → API Gateway** path.
+
+---
 
 #### **Gateway & Core Logic Services**
 
 - **API Gateway (api-gateway)**
-  - Single entry point for all client applications (web and mobile). Routes requests, handles **authentication**, and aggregates responses.
-  - **Relation:** Receives requests from **reverse-proxy**; routes to **ms-authentication-and-roles**, **ms-user-plant-management**, and **lb-analytics**.
+  - Central entry point for all external clients (web and mobile). Handles **authentication**, **rate limiting**, **request routing**, and **aggregation**.
+  - **Relation:** Receives traffic from **WAF** and routes requests to **ms-authentication-and-roles**, **ms-user-plant-management**, **lb-analytics**.
 
 - **Authentication and Roles (ms-authentication-and-roles)**
-  - Handles login, roles, JWT tokens, and authorization checks.
+  - Handles user authentication, role-based access control, and JWT token validation.
   - **Relation:** Connects to **db-authentication-and-roles** and **stg-authentication-and-roles**.
 
 - **User and Plant Management (ms-user-plant-management)**
-  - Manages users, plant configurations, and device relationships.
-  - **Relation:** Connects to **db-user-plant-management** and **stg-user-plant-management**.
+  - Manages user profiles, plant configurations, and device associations.
+  - **Relation:** Accesses **db-user-plant-management** and **stg-user-plant-management**; requests routed via **API Gateway**.
 
 - **Load Balancer - Analytics (lb-analytics)**
-  - Distributes client/gateway requests across instances of **be-analytics**.
-  - **Relation:** Served by **API Gateway**; forwards to **be-analytics**.
+  - Distributes incoming analytics requests among multiple **be-analytics** instances to improve throughput.
+  - **Relation:** Served by **API Gateway**; forwards requests to **be-analytics**.
 
 - **Analytics (be-analytics)**
-  - Processes data, generates metrics, and analytical reports.
-  - **Relation:** Served by **lb-analytics**; consumes **db-caching** and **db-data-processing**.
+  - Performs computation of key metrics, aggregates processed data, and provides dashboards.
+  - **Relation:** Served by **lb-analytics**; consumes **db-caching** and **db-data-processing** for faster query response.
 
-- **Load Balancer - Ingestion (lb-data-ingestion)**
-  - Distributes high-volume IoT data across instances of **be-data-ingestion**.
-  - **Relation:** Receives data from **microcontroller-device** and **external-microcontroller-device**; forwards to **be-data-ingestion**.
+- **Load Balancer - Data Ingestion (lb-data-ingestion)**
+  - Distributes high-volume IoT data streams across **be-data-ingestion** instances.
+  - **Relation:** Receives data from **microcontroller-device**; forwards to **be-data-ingestion**.
 
 - **Data Ingestion (be-data-ingestion)**
-  - Receives raw sensor data from IoT devices, validates it, and publishes it to the message queue.
-  - **Relation:** Served by **lb-data-ingestion**; produces messages to **queue-data-ingestion**.
+  - Receives and validates raw IoT sensor data; transforms payloads and publishes them to **queue-data-ingestion**.
+  - **Relation:** Served by **lb-data-ingestion**; produces messages for asynchronous processing.
 
 - **Data Processing (ms-data-processing)**
-  - Consumes data from the message queue, transforms/aggregates it, and stores the processed results.
-  - **Relation:** Consumes **queue-data-ingestion**; connects to **db-caching**, **stg-data-processing**, and **db-data-processing**.
+  - Consumes messages from the queue, performs data transformation, aggregation, and persistence.
+  - **Relation:** Consumes **queue-data-ingestion**; interacts with **db-caching**, **stg-data-processing**, and **db-data-processing**.
+
+- **Load Balancer - Data Processing (lb-data-processing)**
+  - Balances workloads between **ms-data-processing** instances to handle peak data transformation demand.
+  - **Relation:** Balances requests and ensures stable processing throughput.
+
+---
 
 #### **Data, Messaging & IoT**
 
 - **Message Queue (queue-data-ingestion)**
-  - Kafka-based message broker for reliable, asynchronous communication (decouples ingestion and processing).
+  - Kafka-based broker enabling asynchronous communication between ingestion and processing microservices.
   - **Relation:** Produced by **be-data-ingestion**; consumed by **ms-data-processing**.
 
-- **microcontroller-device**
-  - External IoT devices (e.g., ESP8266) capturing environmental data.
-  - **Relation:** Sends data to **lb-data-ingestion** via HTTP POST.
-
-- **Caching DB (db-caching)**
-  - High-speed, volatile storage (e.g., Redis) for frequently accessed data.
-  - **Relation:** Consumed by **be-analytics** and **ms-data-processing**.
+- **Microcontroller Device (microcontroller-device)**
+  - External IoT sensor (e.g., ESP8266/ESP32) that sends telemetry data.
+  - **Relation:** Sends POST requests to **lb-data-ingestion**.
 
 - **Databases and Storage (STG/DB)**
-  - **db-authentication-and-roles** (PostgreSQL): Transactional storage for users and permissions.
-  - **db-user-plant-management** (PostgreSQL): Transactional storage for plants and devices.
-  - **db-data-processing** (PostgreSQL/TimescaleDB): Storage for processed analytical data.
-  - **stg-data-processing** (MinIO/S3): Temporary or raw storage for device data/backups.
+  - **db-authentication-and-roles (PostgreSQL):** Manages users, credentials, and permissions.
+  - **stg-authentication-and-roles:** Temporary storage for authentication sessions.
+  - **db-user-plant-management (PostgreSQL):** Stores plant configuration, device mappings, and user ownership.
+  - **stg-user-plant-management:** Staging area for plant and device updates.
+  - **db-data-processing (PostgreSQL/TimescaleDB):** Stores aggregated sensor data and processed metrics.
+  - **stg-data-processing (MinIO/S3):** Holds raw sensor data and backups.
+  - **db-caching (Redis):** High-speed cache database for accelerating analytical queries and reducing database load.
+
+
+
 
 ### Frontend and Backend Services
 

@@ -387,7 +387,7 @@ The deployment structure reveals several key architectural patterns:
 
 - **Component:** Web Application Firewall (WAF)
 - **Responsibility:** Protects the system’s entry point by filtering and inspecting incoming HTTP traffic.
-- **Capabilities:** Layer-7 inspection, IP reputation filtering, rate limiting, DDoS mitigation, and reverse-proxy routing to the Presentation Layer.
+- **Capabilities:** Layer-6 inspection, IP reputation filtering, rate limiting, DoS mitigation, and works like a reverse-proxy routing to the Presentation Layer.
 - **Communication flow:** Directs validated requests exclusively to Tier 1 (Presentation).
 
 ### **Layer Specifications**

@@ -1,4 +1,4 @@
-# Security Quality Attribute Scenario: Web Application Firewall (WAF) Pattern for Layer 7 DDoS Mitigation
+# Security Quality Attribute Scenario: Web Application Firewall (WAF) Pattern for Layer 7 Dos Mitigation
 
 ## Table of Contents
 
@@ -157,7 +157,7 @@ wrk -t4 -c50 -d30s http://<PUBLIC_HOST>:8080/health
 
 **Expected result**: ~1500 req/s, p99 latency < 120 ms, no errors.
 
-### Phase 2: Layer-7 DDoS Attack
+### Phase 2: Layer-7 Dos Attack
 
 1. **Expensive GraphQL burst**
 

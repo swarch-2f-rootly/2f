@@ -371,9 +371,10 @@ The deployment structure reveals several key architectural patterns:
 ### **Border Element**
 
 - **Component:** Web Application Firewall (WAF)
-- **Responsibility:** Protects the system’s entry point by filtering and inspecting incoming HTTP traffic.
-- **Capabilities:** Layer-6 inspection, IP reputation filtering, rate limiting, DoS mitigation, and works like a reverse-proxy routing to the Presentation Layer.
+- **Responsibility:** It protects the system's entry point by filtering and inspecting incoming HTTP traffic, and having been implemented as a type of reverse proxy, it acts as the access control point for frontend traffic.
+- **Capabilities:** Layer 6 inspection, IP reputation filtering, rate limiting, DoS mitigation, and it functions as a reverse proxy that routes to the presentation layer, performs request validation, routing, authentication, and applies access rules.
 - **Communication flow:** Directs validated requests exclusively to Tier 1 (Presentation).
+- **Communication style:** HTTP/HTTPS
 
 ### **Layer Specifications**
 
@@ -384,21 +385,14 @@ The deployment structure reveals several key architectural patterns:
 - **Constraint:** Cannot access deeper tiers directly.
 
 
-#### **Tier 2 – Limit Access Layer**
-- **Responsibility:** Acts as the access control point for frontend traffic.
-- **Components:** `reverse-proxy`
-- **Capabilities:** Request validation, routing, authentication, and enforcement of access rules.
-- **Communication style:** HTTP/HTTPS
-
-
-#### **Tier 3 – Synchronous Communication Layer**
+#### **Tier 2 – Synchronous Communication Layer**
 - **Responsibility:** Manages synchronous request routing and API orchestration.
 - **Components:** `api-gateway`
 - **Capabilities:** Request aggregation, throttling, authentication, and routing.
 - **Communication style:** Synchronous HTTP/gRPC
 
 
-#### **Tier 4 – Logic Layer**
+#### **Tier 3 – Logic Layer**
 - **Responsibility:** Implements the system’s business logic and processing workflows.
 - **Components:**
   - `be-authentication-and-roles`
@@ -409,14 +403,14 @@ The deployment structure reveals several key architectural patterns:
 
 ---
 
-#### **Tier 5 – Distribution Layer**
+#### **Tier 4 – Distribution Layer**
 - **Responsibility:** Balances and distributes requests between backend services to optimize performance and redundancy.
 - **Components:** `lb-analytics`, `lb-data-ingestion`
 - **Capabilities:** Load balancing, health checks, and failover.
 
 ---
 
-#### **Tier 6 – Asynchronous Communication Layer**
+#### **Tier 5 – Asynchronous Communication Layer**
 - **Responsibility:** Handles event-driven communication and background processing.
 - **Components:**
   - `be-data-ingestion` (producer)
@@ -426,7 +420,7 @@ The deployment structure reveals several key architectural patterns:
 
 ---
 
-#### **Tier 7 – Data Layer**
+#### **Tier 6 – Data Layer**
 - **Responsibility:** Manages data persistence and storage across all domains.
 - **Datastores:**
   - `db-authentication-and-roles`, `stg-authentication-and-roles`

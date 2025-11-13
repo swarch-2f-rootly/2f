@@ -915,11 +915,6 @@ Post-deployment metrics confirm measurable improvements in **response time**, **
 | **Error Rate (%)** | 0.00 | 0.00 | 0.00 |
 | **Throughput (req/s)** | 5.86 | 113.96 | 118.30 |
 
-**Analysis:**  
-At this stage, the system already benefits from **load-balanced traffic distribution**, but caching mechanisms were not yet implemented.  
-Under these conditions, each incoming request triggers a **full query execution** against the analytics computation engine and underlying database.  
-While throughput remains acceptable (up to **118 req/s** at peak), the **average latency (3.5 s)** and **high P95/P99 percentiles** indicate that **repeated identical requests** still lead to unnecessary query recomputation and resource usage.This confirms the need for a **Caching Pattern** to further reduce redundant workload, lower latency, and optimize backend response efficiency.
-
 ---
 ## Countermeasure Implementation: Caching Pattern
 
@@ -930,12 +925,6 @@ The main configuration included:
 - TTL (Time-To-Live) policy to ensure freshness of cached data.  
 - Cache invalidation rules for data updates.  
 - Integration with backend metrics for cache hit/miss analysis.  
-
-**Expected Outcome:**  
-- Reduction in average and percentile response times.  
-- Decrease in redundant database queries.  
-- Increased throughput under concurrent identical requests.  
-- Stable response time variance due to memory-based retrieval.
 
 **💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: [Caching Documentation](caching/caching.md)
 

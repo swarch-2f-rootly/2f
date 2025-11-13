@@ -497,8 +497,6 @@ Shows the hierarchical breakdown of the system into functional modules, clarifyi
 ## Security
 ### Network Segmentation
 
-### Scenario Elements
-
 ![component-and-connector-view](images/scNetworkSegmentationP3.png)
 
 ### 1. Artifact
@@ -667,8 +665,6 @@ The Network Segmentation Pattern successfully transformed the system from a vuln
 
 ---
 ## Reverse Proxy
-
-### Scenario Elements
 
 ![Reverse proxy flood scenario](images/reverse_proxy_sceneryP3.png)
 

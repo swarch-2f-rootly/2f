@@ -9,7 +9,7 @@
 - Santiago Restrepo Rojas
 - Gabriela Guzmán Rivera
 - Gabriela Gallegos Rubio
-- Andrés Camilo Orduz Lunar.
+- Andrés Camilo Orduz Lunar
 
 ## Table of Contents
 

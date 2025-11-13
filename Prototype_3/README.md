@@ -888,13 +888,57 @@ Post-deployment metrics confirm measurable improvements in **response time**, **
 
 ## Caching
 
-## Verification – Comparative Analysis
+![Scenario](../images/scCachingP3.png)
 
-| Aspect | **Before Caching** | **After Caching** |
-|--------|-------------------------------------|------------------------------------|
-| **Response** | | |
-| **Response Measure** |  |  |
+| **Element** | **Description** |
+|--------------|-----------------|
+| **Architectural Pattern** | Caching – Aside |
+| **Architectural Tactic** | Maintain Multiple Copies of Computations (Manage resources) |
+| **Artifact** | Analytics Backend |
+| **Source** | Concurrent web or mobile clients repeatedly requesting the same data |
+| **Stimulus** | A burst of 4000 GET requests within 20 seconds, all targeting an identical resource |
+| **Environment** | Normal operations |
+| **Response** | Processes each request (each triggering a full database query), records latency and query statistics in monitoring logs |
+| **Response Measure** | Average request latency (ms) |
+
+---
+
+## Baseline Load Test (Before Caching Implementation)
+
+![post-lb-performance](../images/con_lbGraphql_analytics_performance_avg_3iter.png)
+
+| **Metric** | **Best (1 user)** | **Knee (3401 users)** | **Max Load (4000 users)** |
+|-------------|------------------|-----------------------|----------------------------|
+| **Avg Response Time (ms)** | 235.67 | 3520.17 | 3520.19 |
+| **P95 (ms)** | — | 5272.00 | — |
+| **P99 (ms)** | — | 7829.25 | — |
+| **Error Rate (%)** | 0.00 | 0.00 | 0.00 |
+| **Throughput (req/s)** | 5.86 | 113.96 | 118.30 |
+
+**Analysis:**  
+At this stage, the system already benefits from **load-balanced traffic distribution**, but caching mechanisms were not yet implemented.  
+Under these conditions, each incoming request triggers a **full query execution** against the analytics computation engine and underlying database.  
+While throughput remains acceptable (up to **118 req/s** at peak), the **average latency (3.5 s)** and **high P95/P99 percentiles** indicate that **repeated identical requests** still lead to unnecessary query recomputation and resource usage.This confirms the need for a **Caching Pattern** to further reduce redundant workload, lower latency, and optimize backend response efficiency.
+
+---
+## Countermeasure Implementation: Caching Pattern
+
+The **Cache-Aside pattern** was implemented within the analytics backend to store frequently accessed query results in memory.  
+The main configuration included:
+
+- In-memory cache layer (Redis).  
+- TTL (Time-To-Live) policy to ensure freshness of cached data.  
+- Cache invalidation rules for data updates.  
+- Integration with backend metrics for cache hit/miss analysis.  
+
+**Expected Outcome:**  
+- Reduction in average and percentile response times.  
+- Decrease in redundant database queries.  
+- Increased throughput under concurrent identical requests.  
+- Stable response time variance due to memory-based retrieval.
+
+**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: [Caching Documentation](caching/caching.md)
 
 ---
 # Prototype – Deployment Instructions
-Prototype – Deployment Instructions
+

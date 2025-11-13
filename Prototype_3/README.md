@@ -368,16 +368,13 @@ The deployment structure reveals several key architectural patterns:
 
 
 ## Layered Structure
-
-The system architecture follows a **7-tier layered model**, designed to ensure modularity, scalability, and clear separation of concerns across presentation, communication, logic, and data management domains.  
-The **Border element (WAF)** is not considered part of the tiers but acts as a **security perimeter** protecting inbound traffic before it reaches the presentation tier.
-
+  
 ### Layered view
 
 ![Layered-view](images/TiersP3.png)
 
-**Layered view  - Layers** The structure of the logic layer is shown below to avoid redundancy in the main view.
----
+- **Layered view  - Layers** The structure of the logic layer is shown below to avoid redundancy in the main view.
+- The **Border element (WAF)** is not considered part of the tiers but acts as a **security perimeter** protecting inbound traffic before it reaches the presentation tier.
 
 ### **Border Element**
 
@@ -386,7 +383,6 @@ The **Border element (WAF)** is not considered part of the tiers but acts as a *
 - **Capabilities:** Layer-7 inspection, IP reputation filtering, rate limiting, DDoS mitigation, and reverse-proxy routing to the Presentation Layer.
 - **Communication flow:** Directs validated requests exclusively to Tier 1 (Presentation).
 
----
 ### **Layer Specifications**
 
 #### **Tier 1 – Presentation Layer**
@@ -395,7 +391,6 @@ The **Border element (WAF)** is not considered part of the tiers but acts as a *
 - **Communication style:** Synchronous HTTP/REST
 - **Constraint:** Cannot access deeper tiers directly.
 
----
 
 #### **Tier 2 – Limit Access Layer**
 - **Responsibility:** Acts as the access control point for frontend traffic.
@@ -403,7 +398,6 @@ The **Border element (WAF)** is not considered part of the tiers but acts as a *
 - **Capabilities:** Request validation, routing, authentication, and enforcement of access rules.
 - **Communication style:** HTTP/HTTPS
 
----
 
 #### **Tier 3 – Synchronous Communication Layer**
 - **Responsibility:** Manages synchronous request routing and API orchestration.
@@ -411,7 +405,6 @@ The **Border element (WAF)** is not considered part of the tiers but acts as a *
 - **Capabilities:** Request aggregation, throttling, authentication, and routing.
 - **Communication style:** Synchronous HTTP/gRPC
 
----
 
 #### **Tier 4 – Logic Layer**
 - **Responsibility:** Implements the system’s business logic and processing workflows.

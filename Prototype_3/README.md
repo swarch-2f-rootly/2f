@@ -444,7 +444,7 @@ The diagram below illustrates the internal architecture of each microservice wit
 
 ### Architectural patterns
 
-- **7-Tier Architecture Pattern:**  
+- **6-Tier Architecture Pattern:**  
   The system is logically divided into seven layers, each serving a distinct function — from presentation and routing to computation, distribution, asynchronous messaging, and data management.
   
 - **Security Perimeter (Border):**  

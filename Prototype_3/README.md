@@ -699,16 +699,29 @@ This approach implements the "Limit Access" security tactic by ensuring external
 
 ### Summary
 
+The Network Segmentation Pattern addresses a critical architectural weakness in Rootly's initial deployment: a flat network architecture where all components shared a single Docker network with multiple host port mappings, exposing internal services (API Gateway, databases, message brokers) directly to external networks.
+
+**Security Scenario:** An external malicious actor attempts direct connections to internal services, bypassing frontend authentication and authorization mechanisms. The quality scenario measures the **total count of successful external connections** to internal components as the primary security metric.
+
+**Countermeasure Implementation:** The system was restructured into two isolated network zones:
+- **Public Network (`rootly-public-network`):** Contains only the frontend with controlled external access
+- **Private Network (`rootly-private-network`):** Isolated internal network (marked as `internal: true`) containing all backend services, databases, and infrastructure with no port mappings to the host
+
+This implements the **Limit Access** security tactic (Resist Attacks category), establishing network-level perimeter defense as a complementary layer to application-level security.
+
 ## Verification – Comparative Analysis
 
-| Aspect | **Before Network segmentation** | **After  Network segmentation** |
-|--------|-------------------------------------|------------------------------------|
-| **Response** |Connection granted to API Gateway, backend services, and databases |Connection refused for all internal services |
-| **Response Measure** |**5+ successful external connections** to internal services  |**0 successful external connections** to internal services  |
+| Aspect | **Before Network Segmentation** | **After Network Segmentation** |
+|--------|----------------------------------|--------------------------------|
+| **Attack Surface** | 8+ services exposed through host port mappings | Only frontend exposed (single entry point) |
+| **External Connection Attempts** | API Gateway, backend services, PostgreSQL, Kafka UI | All internal services tested |
+| **Response** | Connection granted to API Gateway, backend services, and databases | Connection refused for all internal services |
+| **Response Measure** | **5+ successful external connections** to internal services | **0 successful external connections** to internal services |
+| **CIA Impact** | Confidentiality, Integrity, and Availability at risk | All three properties protected by network isolation |
 
-The Network Segmentation Pattern successfully transformed the system from a vulnerable flat architecture to a secured segmented architecture, achieving the primary security objective of zero successful external connections to internal services while maintaining full internal functionality.
+**Validation Outcome:** The Network Segmentation Pattern successfully eliminated the architectural vulnerability, achieving a **100% reduction in external attack surface**. All 5+ previously vulnerable services are now completely inaccessible from external networks, while internal service communication remains fully functional through Docker's private network DNS resolution. The security objective of **zero successful external connections** was achieved and validated through simulated attack scenarios.
 
-**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: **[Network Segmentation Pattern Documentation](network_segmentation/README.md)**
+**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: **[Network Segmentation Pattern Documentation](https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/network_segmentation/README.md)**
 
 ---
 ## Secure Channel
@@ -788,7 +801,7 @@ The Secure Channel Pattern mitigates the risk by:
 
 Implementing the Secure Channel Pattern eliminates the exposure of sensitive data in transit, blocks credential theft and session hijacking, and preserves system functionality. All browser–frontend communication is now encrypted, fulfilling the security objective for data-in-transit protection.
 
-**💡 Note:** For technical details and visual evidence, see the [Secure Channel Pattern Documentation](secure_channel/README.md).
+**💡 Note:** For technical details and visual evidence, see the [Secure Channel Pattern Documentation](https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/secure_channel/README.md).
 
 ---
 ## Reverse Proxy
@@ -906,7 +919,7 @@ Adopting the reverse proxy converted an unbounded ingress path into a controlled
 | **Response** | API gateway and downstream services absorb the entire flood, leading to saturation, restarts, and user-visible downtime. | Reverse proxy throttles the attack, forwards only safe RPS to the gateway, and keeps legitimate sessions responsive. |
 | **Response Measure** | High latency, backend RPS mirrors attack volume, zero 429 shedding, elevated 5xx. | Latency within SLA, bounded backend RPS, significant 429 shedding, minimal 5xx. |
 
-**💡 Note on Architectural Pattern:** See the [Reverse Proxy Pattern Documentation](reverse_proxy/README.md) for Nginx configuration, validation commands, and extended results.
+**💡 Note on Architectural Pattern:** See the [Reverse Proxy Pattern Documentation](https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/reverse_proxy/README.md) for Nginx configuration, validation commands, and extended results.
 
 ---
 ## Web Application Firewall
@@ -954,7 +967,7 @@ The implementation of the WAF pattern effectively mitigates application-layer Do
 These results confirm a substantial improvement in **availability**, **performance stability**, and **observability**: the system remains responsive under hostile traffic, legitimate clients experience stable response times, and WAF logs provide an auditable trail of triggered rules and detected attacks.
 
 
-**💡 Note on Architectural Pattern:** See the [WAF Pattern Documentation](Web%20Application%20Firewall/README.md) for Nginx configuration, mitigation strategy, and validation results.
+**💡 Note on Architectural Pattern:** See the [WAF Pattern Documentation](https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/Web%20Application%20Firewall/README.md) for Nginx configuration, mitigation strategy, and validation results.
 
 ---
 
@@ -1009,7 +1022,7 @@ The configuration applied included:
 The **Load Balancer pattern** successfully mitigated the initial performance bottleneck by distributing incoming traffic evenly across multiple backend instances.  
 Post-deployment metrics confirm measurable improvements in **response time**, **throughput**, and **scalability tolerance**, fulfilling the **Performance and Scalability** quality objectives for the Analytics Backend.
 
-**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: [Load Balancer Documentation](load%20balancer/load_balancer.md)
+**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: [Load Balancer Documentation](https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/load%20balancer/load_balancer.md)
 
 ## Caching
 
@@ -1051,7 +1064,7 @@ The main configuration included:
 - Cache invalidation rules for data updates.  
 - Integration with backend metrics for cache hit/miss analysis.  
 
-**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: [Caching Documentation](caching/caching.md)
+**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: [Caching Documentation](https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/caching/caching.md)
 
 ---
 

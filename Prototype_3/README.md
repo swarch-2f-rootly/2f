@@ -888,7 +888,7 @@ Post-deployment metrics confirm measurable improvements in **response time**, **
 
 ## Caching
 
-![Scenario](../images/scCachingP3.png)
+![Scenario](images/scCachingP3.png)
 
 | **Element** | **Description** |
 |--------------|-----------------|
@@ -905,7 +905,7 @@ Post-deployment metrics confirm measurable improvements in **response time**, **
 
 ## Baseline Load Test (Before Caching Implementation)
 
-![post-lb-performance](../images/con_lbGraphql_analytics_performance_avg_3iter.png)
+![post-lb-performance](images/con_lbGraphql_analytics_performance_avg_3iter.png)
 
 | **Metric** | **Best (1 user)** | **Knee (3401 users)** | **Max Load (4000 users)** |
 |-------------|------------------|-----------------------|----------------------------|

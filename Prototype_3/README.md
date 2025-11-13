@@ -929,10 +929,10 @@ This countermeasure mitigates the initial weakness by adding an **intelligent fi
 | **Response** | Reverse proxy forwards all requests directly to API Gateway, causing overload and unresponsiveness. | WAF inspects and blocks malicious traffic, forwarding only legitimate requests to API Gateway. |
 | **Response Measure** | API Gateway latency > 5 s, 502/503 errors after ~30 s, availability < 60%. | Latency increase < 20%, ≥ 95% malicious traffic blocked, availability > 99%, no mass 502/503 errors. |
 
-La implementación del patrón **WAF** mitiga efectivamente los ataques de denegación de servicio a nivel de aplicación al interceptar y filtrar solicitudes maliciosas antes de que lleguen a la puerta de enlace API.  
-La validación cuantitativa confirma una **mejora sustancial en la disponibilidad y estabilidad de la latencia**, transformando el sistema de una exposición de punto único de falla a un plano de control de tráfico resiliente, monitoreado y adaptativo.
+The implementation of the **WAF pattern** effectively mitigates application-layer denial-of-service attacks by intercepting and filtering malicious requests before they reach the API Gateway.  
+Quantitative validation confirms a **substantial improvement in availability and latency stability**, transforming the system from a single-point-of-failure exposure to a resilient, monitored, and adaptive traffic control plane.
 
-**💡 Nota sobre el Patrón Arquitectónico:** Para una revisión detallada del patrón documentado, consulte la documentación completa aquí: [Documentación del Firewall de Aplicaciones Web (WAF)](Web%20Application%20Firewall)
+**💡 Note on Architectural Pattern:** See the [WAF Pattern Documentation](Web%20Application%20Firewall/README.md) for Nginx configuration, mitigation strategy, and validation results.
 
 ---
 

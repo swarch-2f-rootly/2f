@@ -948,12 +948,14 @@ This countermeasure mitigates the initial weakness by adding an **intelligent fi
 ### Verification 
 
 | Aspect | **Before WAF (Reverse Proxy Only)** | **After WAF (WAF Pattern Applied)** |
-|--------|-------------------------------------|------------------------------------|
-| **Response** | Reverse proxy forwards all requests directly to the API Gateway, allowing a single malicious client to overload the service and cause unresponsiveness. | WAF inspects and throttles abusive traffic, forwarding only legitimate requests to the API Gateway. |
-| **Response Measure** | API Gateway latency > 5 s, 502/503 errors after ~30 s, availability < 60%. | Latency increase < 20%, ≥ 95% of malicious requests blocked, availability > 99%, no 502/503 errors. |
+|--------|-------------------------------------|--------------------------------------|
+| **Response** | Reverse proxy forwards all requests directly to the API Gateway, allowing a single malicious client to overload the service and cause unresponsiveness. | WAF inspects and throttles abusive traffic, forwarding only traffic classified as legitimate to the API Gateway. |
+| **Response Measure** | API Gateway latency > 5 s, 502/503 errors after ~30 s, availability < 60% under sustained Layer-7 attack. | **≥ 95% of malicious requests blocked** (observed > 99% across test runs, 99.67% globally). The gateway remains responsive during the attack, with only a small fraction of traffic reaching the application. |
 
-The implementation of the **WAF pattern** effectively mitigates **application-layer denial-of-service (DoS)** attacks by detecting and limiting malicious request patterns before they reach the API Gateway.  
-Quantitative validation confirms a **substantial improvement in availability and latency stability**, transforming the system from a single-point-of-failure exposure into a **resilient and adaptive traffic control plane**.
+The implementation of the WAF pattern effectively mitigates application-layer DoS attacks by inspecting and blocking malicious request patterns before they reach the API Gateway. Quantitative traffic analysis shows that the WAF blocks more than **99%** of all incoming requests during the attack scenario, allowing only a very small fraction of traffic to pass through.
+
+While the current results focus on traffic distribution rather than latency or availability, the consistently high blocking rate indicates a substantial improvement in the system’s resilience under hostile traffic conditions.
+
 
 **💡 Note on Architectural Pattern:** See the [WAF Pattern Documentation](Web%20Application%20Firewall/README.md) for Nginx configuration, mitigation strategy, and validation results.
 

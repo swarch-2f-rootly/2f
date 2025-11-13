@@ -33,16 +33,18 @@ The main objective was to **maintain multiple copies of computed results** in me
 
 ![post-lb-performance](../images/con_lbGraphql_analytics_performance_avg_3iter.png)
 
-| **Metric** | **Best (1 user)** | **Knee (users)** | **Max Load (4000 users)** |
-|-------------|------------------|------------------|----------------------------|
-| **Avg Response Time (ms)** |  |  |  |
-| **P95 (ms)** |  |  |  |
-| **P99 (ms)** |  |  |  |
-| **Error Rate (%)** |  |  |  |
-| **Throughput (req/s)** |  |  |  |
+| **Metric** | **Best (1 user)** | **Knee (3401 users)** | **Max Load (4000 users)** |
+|-------------|------------------|-----------------------|----------------------------|
+| **Avg Response Time (ms)** | 235.67 | 3520.17 | 3520.19 |
+| **P95 (ms)** | — | 5272.00 | — |
+| **P99 (ms)** | — | 7829.25 | — |
+| **Error Rate (%)** | 0.00 | 0.00 | 0.00 |
+| **Throughput (req/s)** | 5.86 | 113.96 | 118.30 |
 
 **Analysis:**  
-Before applying caching, the system experienced **repeated database queries for identical data**, causing **high latency** and **CPU-bound query processing** as concurrency increased.
+At this stage, the system already benefits from **load-balanced traffic distribution**, but caching mechanisms were not yet implemented.  
+Under these conditions, each incoming request triggers a **full query execution** against the analytics computation engine and underlying database.  
+While throughput remains acceptable (up to **118 req/s** at peak), the **average latency (3.5 s)** and **high P95/P99 percentiles** indicate that **repeated identical requests** still lead to unnecessary query recomputation and resource usage.This confirms the need for a **Caching Pattern** to further reduce redundant workload, lower latency, and optimize backend response efficiency.
 
 ---
 
@@ -51,7 +53,7 @@ Before applying caching, the system experienced **repeated database queries for 
 The **Cache-Aside pattern** was implemented within the analytics backend to store frequently accessed query results in memory.  
 The main configuration included:
 
-- In-memory cache layer (e.g., Redis or local caching module).  
+- In-memory cache layer (Redis).  
 - TTL (Time-To-Live) policy to ensure freshness of cached data.  
 - Cache invalidation rules for data updates.  
 - Integration with backend metrics for cache hit/miss analysis.  

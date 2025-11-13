@@ -72,12 +72,6 @@ Finally, users can access all this information through an intuitive interface, a
 
 ### Internal Components 
 
-- **Frontend Mobile (fe-mobile)**
-  - Type: Mobile client application
-  - Responsibility: Provides a mobile-optimized interface consuming backend APIs directly via REST.
-  - Protocols: **HTTP/REST**
-  - Relations: Consumes `reverse-proxy` via HTTP/REST
- 
 - **Microcontroller Device**
   - Type: External IoT/embedded device
   - Responsibility: Collects and sends sensor and plant data
@@ -89,24 +83,8 @@ Finally, users can access all this information through an intuitive interface, a
   - Responsibility: Protects web applications from common attacks and filters malicious traffic before it reaches the reverse proxy.
   - Protocols: **HTTPS**
   - Relations:
-    - Receives requests from `web-browser`.
-    - Routes traffic to `reverse-proxy`.
-
-- **reverse-proxy**
-  - Type: Network Proxy
-  - Responsibility: Handles request routing, load balancing, and potentially SSL termination before traffic reaches the `api-gateway`.
-  - Protocols: **HTTP/REST**
-  - Relations:
-    - Receives requests from `WAF` and `fe-mobile`.
-    - Routes traffic to `api-gateway`.
-
-- **lb-analytics**
-  - Type: Load Balancer
-  - Responsibility: Distributes incoming requests from `api-gateway` across multiple instances of the `be-analytics` service.
-  - Protocols: **HTTP/GraphQL**
-  - Relations:
-    - Receives requests from `api-gateway`.
-    - Routes traffic to `be-analytics`.
+    - Receives requests from `web-browser` and `fe-mobile`.
+    - Routes traffic to `api-gateway` and `fe-web` .
 
 - **lb-data-ingestion**
   - Type: Load Balancer
@@ -119,6 +97,12 @@ Finally, users can access all this information through an intuitive interface, a
 ---
 
 ### Internal Components (Application/Logic)
+
+- **Frontend Mobile (fe-mobile)**
+  - Type: Mobile client application
+  - Responsibility: Provides a mobile-optimized interface consuming backend APIs directly via REST.
+  - Protocols: **HTTP/REST**
+  - Relations: Consumes `reverse-proxy` via HTTP/REST
 
 - **fe-web**
   - Type: Web client application
@@ -135,6 +119,14 @@ Finally, users can access all this information through an intuitive interface, a
   - Relations:
     - Receives requests from `reverse-proxy`.
     - Consumes services from backend modules (`lb-analytics`, `ms-user-plant-management`, `ms-authentication-and-roles`).
+
+- **lb-analytics**
+  - Type: Load Balancer
+  - Responsibility: Distributes incoming requests from `api-gateway` across multiple instances of the `be-analytics` service.
+  - Protocols: **HTTP/GraphQL**
+  - Relations:
+    - Receives requests from `api-gateway`.
+    - Routes traffic to `be-analytics`.
 
 - **ms-authentication-and-roles**
   - Type: Backend Microservice
@@ -226,10 +218,9 @@ Finally, users can access all this information through an intuitive interface, a
     This pattern decouples producers and consumers through a message broker that handles routing, delivery guarantees, retries, and dead-letter queues. It enables asynchronous communication, smooths traffic spikes with backpressure, and allows services to evolve independently without tight coupling.
 In Rootly, Kafka acts as the broker: rootly-data-ingestion publishes sensor events to the queue, and rootly-data-processing consumes them for validation, transformation, and storage. The queue between these services (Kafka topics under the “queue-data-ingestion” namespace) provides at-least-once delivery and horizontal scalability.
 
-2.  **5 Tiers Architecture**
-    The 5-level architecture improves communication between components by separating responsibilities into tiers (physical) and layers (logical). It also has a hierarchy, since the upper layers depend on the lower ones.The levels establish clear boundaries and responsibilities for components to collaborate with each other, facilitating communication between components. The logical layers represent the internal structure of the components and internal dependencies.
+2.  **Tiers Architecture**
+    The level architecture improves communication between components by separating responsibilities into tiers (physical) and layers (logical). It also has a hierarchy, since the upper layers depend on the lower ones.The levels establish clear boundaries and responsibilities for components to collaborate with each other, facilitating communication between components. The logical layers represent the internal structure of the components and internal dependencies.
 The result is predictable interactions, easier evolution, and independent scaling of responsibilities.
----
 
 ### Architectural Elements & Relations 
 

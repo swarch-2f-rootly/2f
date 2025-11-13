@@ -2,7 +2,14 @@
 ## Prototype 3 - Quality Attributes, Part 1
 
 ## Team 2F
-- Carlos Santiago Sandoval Casallas - Cristian Santiago Tovar Bejarano - Danny Marcelo Yaluzan Acosta - Esteban Rodriguez Muñoz - Santiago Restrepo Rojas - Gabriela Guzmán Rivera - Gabriela Gallegos Rubio - Andrés Camilo Orduz Lunar.
+- Carlos Santiago Sandoval Casallas
+- Cristian Santiago Tovar Bejarano
+- Danny Marcelo Yaluzan Acosta
+- Esteban Rodriguez Muñoz
+- Santiago Restrepo Rojas
+- Gabriela Guzmán Rivera
+- Gabriela Gallegos Rubio
+- Andrés Camilo Orduz Lunar.
 
 ## Table of Contents
 

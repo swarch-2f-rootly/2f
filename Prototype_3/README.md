@@ -78,13 +78,13 @@ Finally, users can access all this information through an intuitive interface, a
   - Protocols: **HTTP/REST**
   - Relations: Consumes `lb-data-ingestion` via HTTP/REST
 
-- **WAF**
+- **WAF (with embedded Reverse Proxy)**
   - Type: Security Firewall / Edge Service
-  - Responsibility: Protects web applications from common attacks and filters malicious traffic before it reaches the reverse proxy.
+  - Responsibility: Protects web applications from common attacks while running the reverse proxy functionality internally so that every frontend request is inspected, throttled, and routed within the same component.
   - Protocols: **HTTPS**
   - Relations:
     - Receives requests from `web-browser` and `fe-mobile`.
-    - Routes traffic to `api-gateway` and `fe-web` .
+    - Routes traffic to `api-gateway` and `fe-web`.
 
 - **lb-data-ingestion**
   - Type: Load Balancer
@@ -98,7 +98,7 @@ Finally, users can access all this information through an intuitive interface, a
   - Type: Mobile client application
   - Responsibility: Provides a mobile-optimized interface consuming backend APIs directly via REST.
   - Protocols: **HTTP/REST**
-  - Relations: Consumes `reverse-proxy` via HTTP/REST
+  - Relations: Consumes the WAF (reverse proxy) via HTTP/REST
 
 - **fe-web**
   - Type: Web client application
@@ -113,7 +113,7 @@ Finally, users can access all this information through an intuitive interface, a
   - Responsibility: Central entry point for all clients. Routes, aggregates, and authenticates API requests to backend microservices.
   - Protocols: **HTTP/GraphQL/REST**
   - Relations:
-    - Receives requests from `reverse-proxy`.
+    - Receives requests from the WAF reverse proxy.
     - Consumes services from backend modules (`lb-analytics`, `ms-user-plant-management`, `ms-authentication-and-roles`).
 
 - **lb-analytics**
@@ -362,7 +362,7 @@ Based on the deployment view, the system's elements are allocated as follows:
     *   **LAN (Shared Network):** A Local Area Network infrastructure that interconnects all three nodes, providing the foundational communication layer for the entire system. The LAN enables seamless connectivity between physical devices (Node 3), mobile clients (Node 2), and the server cluster (Node 1).
     
     *   **Node 1 (Server Cluster):** A physical or virtual server hosting the Docker environment with two network segments:
-        *   **Public Subnet (DMZ):** Contains WAF, reverse proxy, `fe-ssr-web`, and `api-gateway`, exposing controlled access to external clients.
+        *   **Public Subnet (DMZ):** Contains the WAF (which embeds the reverse proxy), `fe-ssr-web`, and `api-gateway`, exposing controlled access to external clients.
         *   **Private Subnet:** Contains all backend microservices, databases, message queue, and load balancers, isolated from direct external access. Services communicate via the internal Docker bridge network (`rootly-private-network`).
     
     *   **Node 2 (Mobile Client):** A physical device (smartphone/tablet running iOS/Android) executing the `fe-mobile` application (React Native), which communicates with Node 1 over the LAN via HTTPS.
@@ -806,13 +806,15 @@ Implementing the Secure Channel Pattern eliminates the exposure of sensitive dat
 ---
 ## Reverse Proxy
 
+Rootly implements the reverse proxy pattern inside the Web Application Firewall (WAF). The WAF is therefore the only public-facing component for frontend traffic, simultaneously enforcing inspection rules and the proxy features described below.
+
 ![Reverse proxy flood scenario](images/reverse_proxy_sceneryP3.png)
 
 ### 1. Artifact
 
 **Ingress Path for HTTP/REST Traffic:** Public-facing connector that carries requests from `fe-mobile`, `fe-web` (through the WAF), and automation clients toward the `api-gateway` and all downstream microservices.
 
-- **Reverse Proxy / Edge Layer:** Newly introduced `reverse-proxy` component.
+- **WAF Reverse Proxy / Edge Layer:** The WAF component hosts the reverse proxy logic that all external HTTP requests traverse.
 - **API Gateway (`api-gateway`):** Central orchestrator whose overload cascades to the rest of the platform.
 - **Backend Microservices:** Analytics, authentication, plant management, and processing services that depend on a healthy gateway.
 
@@ -842,20 +844,20 @@ Scenario executed under normal operations while comparing two configurations.
 - Every flood packet reaches the gateway and propagates to the microservices it fronts.
 
 #### Post–Reverse Proxy (Validation)
-- `reverse-proxy` is the only public HTTP/REST connector; all clients traverse `web-browser → WAF → reverse-proxy → api-gateway`.
+- The WAF reverse proxy is the only public HTTP/REST connector; all clients traverse `web-browser/fe-mobile → WAF (reverse proxy) → api-gateway`.
 - `api-gateway` and downstream services are isolated on a private network without host port mappings.
-- Proxy enforces per-IP/per-route throttling, optional caching, and centralized logging to monitor ingress.
+- The WAF enforces per-IP/per-route throttling, optional caching, and centralized logging to monitor ingress.
 
 ### 5. Response
 
-The system must preserve availability by shaping traffic at the edge:
+When the WAF reverse proxy is **not** yet implemented, the system responds to floods in a brittle way:
 
-1. **Edge Throttling:** Reverse proxy counts requests per IP and returns HTTP `429` when limits are exceeded.
-2. **Burst Absorption:** Small bursts are buffered so legitimate short spikes succeed.
-3. **Selective Forwarding:** Only traffic within the configured rate passes through the HTTP/REST connector to `api-gateway`.
-4. **Visibility:** Blocked IPs and routes are logged centrally for quick remediation.
+1. **Edge Throttling:** Does **not** exist; every request hits `api-gateway`, so there is no HTTP `429` shedding at the perimeter.
+2. **Burst Absorption:** Short spikes are still directed straight to the gateway, which has limited ability to buffer traffic and therefore starves worker pools.
+3. **Selective Forwarding:** All traffic—legitimate and abusive—travels through the exposed HTTP/REST connector, so the gateway forwards overload to backends.
+4. **Visibility:** Observability is fragmented across services, making it harder to identify the dominant attacker IPs or routes in real time.
 
-Without the proxy, `api-gateway` attempts to process the entire flood, leading to CPU saturation, increased latency, and cascading 5xx errors.
+This lack of an edge reverse proxy means `api-gateway` must process the entire flood, leading to CPU saturation, increased latency, and cascading 5xx errors. The remainder of this section explains how embedding the reverse proxy inside the WAF fixes those gaps.
 
 ### 6. Response Measure
 
@@ -882,13 +884,13 @@ Validation focuses on runtime metrics collected during the flood test:
 | **Attack** | Massive concurrent REST calls hammer `/api/*` endpoints to exhaust resources. |
 | **Risk** | Farmers and operators lose analytics/telemetry access due to timeouts and 5xx responses. |
 | **Vulnerability** | Unbounded ingress path allows every attack packet to reach internal services. |
-| **Countermeasure** | Reverse proxy between `fe-mobile`/WAF and `api-gateway`, enforcing throttling, caching hot responses, and centralizing inspection. |
+| **Countermeasure** | Implement the reverse proxy inside the WAF between clients and `api-gateway`, enforcing throttling, caching hot responses, and centralizing inspection. |
 
 ### Countermeasure: Reverse Proxy Pattern
 
 The **Reverse Proxy Pattern** establishes a guarded ingress path:
 
-- `reverse-proxy` is the only service exposed publicly; `api-gateway` resides on a private network and is reachable solely through the proxy.
+- The WAF reverse proxy is the only service exposed publicly; `api-gateway` resides on a private network and is reachable solely through the WAF.
 - The HTTP/REST connector between `fe-mobile` and the backend now includes rate limiting, burst controls, and optional caching to keep forwarded RPS within safe envelopes.
 - Observability improves because every external HTTP request is logged in one place, accelerating detection and response.
 
@@ -897,7 +899,7 @@ The **Reverse Proxy Pattern** establishes a guarded ingress path:
 | State | Response | Response Metrics |
 | --- | --- | --- |
 | **Before reverse proxy** | `api-gateway` processes every spike, saturates CPU, and propagates latency/timeouts to clients. | P95 latency >3 s, backend RPS ≈ attack RPS (~1000), 20–40% 5xx, no `429` shedding. |
-| **After reverse proxy** | Proxy sheds overflow (HTTP 429) and forwards only bounded traffic through the HTTP/REST connector, keeping services responsive. | P95 latency <300 ms, forwarded RPS capped (~200–300), <2% 5xx, high `429` count evidencing throttling. |
+| **After reverse proxy** | The WAF reverse proxy sheds overflow (HTTP 429) and forwards only bounded traffic through the HTTP/REST connector, keeping services responsive. | P95 latency <300 ms, forwarded RPS capped (~200–300), <2% 5xx, high `429` count evidencing throttling. |
 
 ### Comparative Security Assessment
 
@@ -910,13 +912,13 @@ The **Reverse Proxy Pattern** establishes a guarded ingress path:
 
 ### Summary
 
-Adopting the reverse proxy converted an unbounded ingress path into a controlled choke point that enforces the **Limit Access** tactic. Legitimate `fe-mobile` sessions maintain service quality even when hostile traffic is present, because overload is absorbed and rejected at the edge.
+Adopting the WAF-hosted reverse proxy converted an unbounded ingress path into a controlled choke point that enforces the **Limit Access** tactic. Legitimate `fe-mobile` sessions maintain service quality even when hostile traffic is present, because overload is absorbed and rejected at the edge.
 
 ## Verification – Comparative Analysis
 
 | Aspect | **Before Reverse Proxy** | **After Reverse Proxy** |
 | --- | --- | --- |
-| **Response** | API gateway and downstream services absorb the entire flood, leading to saturation, restarts, and user-visible downtime. | Reverse proxy throttles the attack, forwards only safe RPS to the gateway, and keeps legitimate sessions responsive. |
+| **Response** | API gateway and downstream services absorb the entire flood, leading to saturation, restarts, and user-visible downtime. | The WAF reverse proxy throttles the attack, forwards only safe RPS to the gateway, and keeps legitimate sessions responsive. |
 | **Response Measure** | High latency, backend RPS mirrors attack volume, zero 429 shedding, elevated 5xx. | Latency within SLA, bounded backend RPS, significant 429 shedding, minimal 5xx. |
 
 **💡 Note on Architectural Pattern:** See the [Reverse Proxy Pattern Documentation](https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/reverse_proxy/README.md) for Nginx configuration, validation commands, and extended results.
@@ -927,23 +929,23 @@ Adopting the reverse proxy converted an unbounded ingress path into a controlled
 
 ### Scenario Snapshot
 In this scenario, the system faces a sustained **Layer-7 DoS attack** initiated by a single malicious client repeatedly sending legitimate-looking HTTP requests to its public API endpoints.  
-Initially, an NGINX reverse proxy acts as the only public entry point, forwarding all traffic to the API Gateway without deep inspection or rate limiting.  
+Initially, a plain NGINX reverse proxy acts as the only public entry point, forwarding all traffic to the API Gateway without deep inspection or rate limiting.  
 This design exposes the system to resource exhaustion, high latency, and loss of availability.  
-To mitigate this weakness, the **Web Application Firewall (WAF) pattern** is applied, introducing intelligent traffic inspection and rate control mechanisms that detect and block malicious requests while maintaining service performance for legitimate users.
+To mitigate this weakness, the **Web Application Firewall (WAF) pattern** is applied so that the reverse proxy functionality is implemented inside the WAF, introducing intelligent traffic inspection and rate control mechanisms that detect and block malicious requests while maintaining service performance for legitimate users.
 
 - **Weakness:** The system exposes a single public entry point through an NGINX reverse proxy that only forwards traffic to the API Gateway without deep inspection or centralized rate limiting.
 - **Threat:** A malicious external client or automated script capable of generating a sustained stream of HTTP(S) requests that simulated legitimate traffic.
 - **Attack:**  A **Layer-7 DoS** attack that repeatedly targets exposed endpoints (e.g., `/graphql`, `/auth/login`), using continuous or “low-and-slow” requests to exhaust gateway worker pools and degrade performance.
 - **Risk:** The API Gateway becomes overloaded, producing 502/503 responses and blocking legitimate users. System availability and user experience deteriorate severely.
 - **Vulnerability:** Absence of application-layer protection and global throttling. The reverse proxy lacks mechanisms to identify and block abusive request patterns.
-- **Countermeasure:** Introduce a **Web Application Firewall (WAF)** in front of the reverse proxy/API Gateway to inspect, filter, and throttle malicious traffic before it reaches backend services.
+- **Countermeasure:** Integrate a **Web Application Firewall (WAF)** with the reverse proxy/API Gateway edge so that every request is inspected, filtered, and throttled before it reaches backend services.
 
 ### Explanation of the Countermeasure
 
 The **Web Application Firewall (WAF) pattern** introduces a dedicated layer for **application-layer inspection and traffic control**.  
 It applies the *Detect Service Denial* and *Limit Resource Demand* architectural tactics to strengthen the system’s availability and resilience.
 
-By placing the WAF (`rootly-waf`) in front of the reverse proxy and API Gateway, the system gains the ability to:
+By upgrading the existing reverse proxy into the WAF (`rootly-waf`) that fronts the API Gateway, the system gains the ability to:
 
 - **Analyze and classify** HTTP requests using the OWASP Core Rule Set (CRS).  
 - **Detect anomalies and block malicious traffic** before it reaches backend services.  
@@ -951,7 +953,7 @@ By placing the WAF (`rootly-waf`) in front of the reverse proxy and API Gateway,
 - **Maintain service availability** with minimal latency degradation during high-volume attacks.  
 - **Centralize telemetry** (blocked IPs, triggered rules, anomaly scores) for auditing and adaptive security tuning.
 
-This countermeasure mitigates the initial weakness by adding an **intelligent filtering and control mechanism** at the network edge, transforming a passive reverse proxy into an active protection layer capable of handling complex, distributed attacks.
+This countermeasure mitigates the initial weakness by adding an **intelligent filtering and control mechanism** at the network edge, transforming the previously passive reverse proxy into an active protection layer capable of handling complex, distributed attacks.
 
 ### Summary
 

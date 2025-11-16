@@ -103,17 +103,18 @@ Rootly is running under **normal operation** in a cloud or Docker-based environm
 - We consider two states:
 
 1. **Pre–Reverse-Proxy (Baseline)**: Clients hit `api-gateway` directly.
-2. **Post–Reverse-Proxy (Validation)**: All HTTP traffic flows through a reverse proxy in front of `api-gateway`.
+2. **Post–Reverse-Proxy (Validation)**: All HTTP traffic flows through the Web Application Firewall (WAF), which embeds the reverse proxy, in front of `api-gateway`.
 
 #### 5. Response
 
-The system must handle the flood as follows:
+When the WAF reverse proxy is **not yet** in place, Rootly’s response to the flood is fragile:
 
-- **Pre–Reverse-Proxy**: `api-gateway` and backend services try to process all requests. Under load, resource usage spikes, queues grow and latency increases dramatically.
-- **Post–Reverse-Proxy**: The reverse proxy applies rate-limits and basic request filtering at the edge:
-  - Excess requests are throttled or rejected with `429 Too Many Requests`.
-  - Cacheable responses may be served from edge cache without hitting the backends.
-  - Backends see only a controlled, bounded RPS.
+- **Edge Throttling:** There is no component rejecting overload at the perimeter, so `api-gateway` must process every packet and cannot emit `429` early.
+- **Burst Absorption:** Short spikes and sustained floods both hit the gateway directly, starving worker pools and causing head-of-line blocking.
+- **Selective Forwarding:** Because all ingress travels through an exposed HTTP/REST connector, legitimate and malicious traffic alike are forwarded downstream.
+- **Visibility:** Attack telemetry is scattered across services, so operators lack a single point to observe and contain abusive IPs or routes.
+
+This absence of a WAF reverse proxy is what allows resource exhaustion and cascading failures; the rest of the section focuses on how embedding the proxy inside the WAF corrects these behaviors.
 
 #### 6. Response Measure
 
@@ -121,14 +122,14 @@ We evaluate the scenario by measuring:
 
 - **P95 latency** for legitimate (baseline) traffic during the test window.
 - **Percentage of blocked / throttled requests** (HTTP 429 or similar).
-- **Total RPS observed at backends** compared to the incoming RPS at the proxy.
+- **Total RPS observed at backends** compared to the incoming RPS at the WAF edge.
 - **Backend uptime and error rate** (HTTP 5xx) during the flood.
 
 **Target (Post–Reverse-Proxy):**
 
 - P95 latency for legitimate traffic stays within agreed SLA.
 - Backend RPS stays below a configured safety threshold.
-- Majority of excess traffic is blocked or throttled at the proxy.
+- Majority of excess traffic is blocked or throttled at the WAF reverse proxy.
 - Backend 5xx error rate remains close to baseline.
 
 ---
@@ -152,7 +153,7 @@ This pattern primarily addresses **Availability**, but also benefits Integrity a
 | **Threat** | Actor or process that can cause harm. | Botnet, misconfigured integration, or aggressive scraper generating thousands of requests per second from one or many IPs. |
 | **Attack** | Concrete execution of the threat. | Running `hey`, `ab`, k6 or custom scripts against Rootly’s APIs with high concurrency and RPS, until the system becomes unstable. |
 | **Risk** | Probability and impact of an attack. | Legitimate farmers, agronomists and operators cannot access dashboards or API data during the flood, blocking operations and causing potential loss of crop monitoring and alerts. |
-| **Countermeasure** | Measure that mitigates the risk. | Deploy a **Reverse Proxy** in front of `api-gateway` with per-IP and per-route rate-limits, optional caching, and basic WAF-style rules. Only the proxy is exposed; `api-gateway` and backends move to a private segment. |
+| **Countermeasure** | Measure that mitigates the risk. | Deploy a **Web Application Firewall (WAF)** that embeds the reverse proxy logic in front of `api-gateway` with per-IP and per-route rate-limits, optional caching, and basic inspection rules. Only the WAF is exposed; `api-gateway` and backends move to a private segment. |
 
 ---
 
@@ -218,14 +219,14 @@ The problem: **every request**, including malicious ones, is fully processed by 
 
 ## Countermeasure Implementation
 
-We introduce a **Reverse Proxy Pattern** to control and shape traffic at the edge.
+We introduce a **Reverse Proxy Pattern** to control and shape traffic at the edge. The reverse proxy functionality lives inside the Web Application Firewall (WAF) component so that the WAF becomes the sole internet-facing entrypoint.
 
 ### Core Idea
 
-1. Insert a **reverse proxy container** (e.g. `reverse-proxy`) in front of `api-gateway`.
-2. Expose only the proxy’s port to the outside world (e.g. `80` or `8080`).
-3. Move `api-gateway` behind the proxy, reachable only on an internal network.
-4. Configure the proxy to:
+1. Insert a **Web Application Firewall (WAF)** service (e.g. `waf`) that embeds the reverse proxy logic in front of `api-gateway`.
+2. Expose only the WAF’s port to the outside world (e.g. `80` or `8080`).
+3. Move `api-gateway` behind the WAF, reachable only on an internal network.
+4. Configure the WAF / reverse proxy to:
 
    * Apply **rate-limiting** per IP and per route.
    * Return `429 Too Many Requests` when limits are exceeded.
@@ -240,11 +241,11 @@ We introduce a **Reverse Proxy Pattern** to control and shape traffic at the edg
 * `api-gateway` bound to host port `8080`.
 * No edge protection.
 
-#### After – Reverse Proxy as Single Ingress
+#### After – WAF (Reverse Proxy) as Single Ingress
 
-* External clients (web, mobile, devices) → `reverse-proxy` (public).
-* `reverse-proxy` → `api-gateway` (private network).
-* `api-gateway` and backends have **no host port mappings**; they are only reachable from the proxy.
+* External clients (web, mobile, devices) → `waf` (public) where the reverse proxy lives.
+* `waf` → `api-gateway` (private network).
+* `api-gateway` and backends have **no host port mappings**; they are only reachable from the WAF.
 
 ### Docker Compose Example (Simplified)
 
@@ -262,16 +263,16 @@ networks:
     internal: true
 ```
 
-#### Reverse Proxy Service
+#### Web Application Firewall (Reverse Proxy) Service
 
 ```yaml
 services:
-  reverse-proxy:
+  waf:
     image: nginx:stable
     ports:
       - "8080:80"               # Only public entry point
     volumes:
-      - ./reverse-proxy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./reverse_proxy/nginx.conf:/etc/nginx/nginx.conf:ro
     networks:
       - rootly-public-network   # Visible externally
       - rootly-private-network  # Talks to api-gateway
@@ -308,7 +309,7 @@ http {
 
     # Basic health endpoint for monitoring the proxy itself
     location /proxy-health {
-      return 200 '{"status":"ok","component":"reverse-proxy"}';
+      return 200 '{"status":"ok","component":"waf-reverse-proxy"}';
       add_header Content-Type application/json;
     }
 
@@ -340,12 +341,12 @@ This configuration:
 
 ## Validation Results (Post–Reverse-Proxy)
 
-We now repeat the flood scenario, but this time all traffic is sent to `reverse-proxy` instead of directly to `api-gateway`.
+We now repeat the flood scenario, but this time all traffic is sent to the WAF (which contains the reverse proxy) instead of directly to `api-gateway`.
 
 ### Experiment Setup
 
 * Same host, same normal user workload.
-* Reverse proxy listening on `http://192.168.1.10:8080`.
+* WAF (reverse proxy) listening on `http://192.168.1.10:8080`.
 * `api-gateway` and all backends hidden on `rootly-private-network`.
 
 ### Phase 1 – Baseline with Proxy Enabled (No Flood)
@@ -356,11 +357,11 @@ hey -z 30s -q 5 -c 5 http://192.168.1.10:8080/api/v1/health
 
 Expected:
 
-* P95 latency stays close to previous baseline (proxy adds small overhead).
+* P95 latency stays close to previous baseline (the WAF adds small overhead).
 * Error rate ≈ 0%.
-* Reverse proxy and gateway both show low CPU usage.
+* WAF and gateway both show low CPU usage.
 
-### Phase 2 – Flood with Reverse Proxy Protection
+### Phase 2 – Flood with WAF Reverse Proxy Protection
 
 Attacker test:
 
@@ -368,12 +369,12 @@ Attacker test:
 hey -z 60s -q 200 -c 200 http://192.168.1.10:8080/api/v1/metrics
 ```
 
-**Observations at the Reverse Proxy:**
+**Observations at the WAF / Reverse Proxy:**
 
 * Total incoming RPS is high (similar to pre-proxy).
 * Access logs show a large number of `429` responses for each attacking IP.
 * Effective forwarded RPS to `api-gateway` is capped at configured limit (e.g. ~20 RPS per IP).
-* CPU on `reverse-proxy` is used, but `api-gateway` remains within safe bounds.
+* CPU on `waf` is used, but `api-gateway` remains within safe bounds.
 
 **Observations at the API Gateway and Backends:**
 
@@ -384,7 +385,7 @@ hey -z 60s -q 200 -c 200 http://192.168.1.10:8080/api/v1/metrics
 
 ### Metrics Comparison (Illustrative)
 
-| Metric                        | Pre–Reverse-Proxy   | Post–Reverse-Proxy         |
+| Metric                        | Pre–Reverse-Proxy   | Post–WAF Reverse-Proxy     |
 | ----------------------------- | ------------------- | -------------------------- |
 | Incoming RPS at edge          | 1000 RPS            | 1000 RPS                   |
 | RPS observed at `api-gateway` | ~1000 RPS           | ~200–300 RPS (bounded)     |
@@ -393,7 +394,7 @@ hey -z 60s -q 200 -c 200 http://192.168.1.10:8080/api/v1/metrics
 | Number of 429 responses       | 0                   | High (most excess traffic) |
 | Gateway / backend restarts    | Possible / likely   | None in test window        |
 
-The **reverse proxy absorbs the attack** by shedding load and returning `429` responses. Legitimate users can still use the system.
+The **WAF-integrated reverse proxy absorbs the attack** by shedding load and returning `429` responses. Legitimate users can still use the system.
 
 ---
 
@@ -405,12 +406,12 @@ This section links the implementation and measurements back to the original qual
 
 | Scenario Element     | Requirement                                             | Implemented Response                                                                                                                       |
 | -------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Artifact**         | Protect ingress to APIs and static resources.           | All HTTP traffic flows through `reverse-proxy` before reaching `api-gateway` or backends.                                                  |
-| **Source**           | Botnet or automated scraper flooding endpoints.         | Attack emulated via `hey` or equivalent load generator; high RPS is directed at the proxy.                                                 |
+| **Artifact**         | Protect ingress to APIs and static resources.           | All HTTP traffic flows through the WAF (with the embedded reverse proxy) before reaching `api-gateway` or backends.                        |
+| **Source**           | Botnet or automated scraper flooding endpoints.         | Attack emulated via `hey` or equivalent load generator; high RPS is directed at the WAF entrypoint.                                        |
 | **Stimulus**         | Sudden spikes in HTTP traffic to public APIs.           | Flood workload of hundreds or thousands of RPS launched for a defined time window.                                                         |
-| **Environment**      | Normal system operation, with/without proxy.            | Two configurations evaluated: direct exposure vs. proxy-protected ingress.                                                                 |
-| **Response**         | System must protect availability of legitimate traffic. | Reverse proxy throttles excess traffic, returns `429`, and forwards only a controlled RPS to backends.                                     |
-| **Response Measure** | Maintain P95 latency and uptime; block excess requests. | With proxy: backends stay within capacity; P95 latency for legit traffic remains in SLA and a large fraction of attack traffic is blocked. |
+| **Environment**      | Normal system operation, with/without proxy.            | Two configurations evaluated: direct exposure vs. WAF-protected ingress.                                                                   |
+| **Response**         | System must protect availability of legitimate traffic. | WAF reverse proxy throttles excess traffic, returns `429`, and forwards only a controlled RPS to backends.                                 |
+| **Response Measure** | Maintain P95 latency and uptime; block excess requests. | With WAF: backends stay within capacity; P95 latency for legit traffic remains in SLA and a large fraction of attack traffic is blocked.   |
 
 ### Quantitative Assessment
 
@@ -443,11 +444,10 @@ The Reverse Proxy Pattern successfully:
 3. **Preserves availability** of critical backend services during floods.
 4. **Improves observability**, as all external HTTP traffic is visible in a single place.
 
-The implementation has shown that, for the defined scenario of automated floods / light DDoS, the reverse proxy acts as an effective architectural countermeasure and significantly strengthens the resilience of the Rootly platform.
+The implementation has shown that, for the defined scenario of automated floods / light DDoS, the WAF-integrated reverse proxy acts as an effective architectural countermeasure and significantly strengthens the resilience of the Rootly platform.
 
 ---
 
 ```
 ::contentReference[oaicite:1]{index=1}
 ```
-

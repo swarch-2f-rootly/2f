@@ -51,12 +51,11 @@ In prototype 3, after implementing the reverse proxy pattern, the reverse proxy 
 
 ### 1. Artifact
 
-**Public Entry Point and Traffic Control Plane:**  
-Components directly responsible for receiving, routing, and protecting HTTP/HTTPS flows:
+**Backend Entry Service:**  
+The component whose availability is affected by the incoming traffic and whose behavior is measured under the DoS attack.
 
-- **Reverse Proxy / API Gateway** (`rootly-apigateway` behind the current reverse proxy).  
-- **Proposed WAF service** (`rootly-waf`) acting as the pre-gateway inspection layer.  
-- **Supporting assets**: WAF rule sets, IP allow/deny lists, centralized metrics and logging pipelines used to trigger automated countermeasures.
+- **API Gateway**, exposed through the existing reverse proxy as the single public entry point.
+- **Supporting backend services** that depend on the gateway to receive traffic.
 
 ### 2. Source
 
@@ -75,22 +74,22 @@ The source executes a **Layer-7 DoS attack** consisting of:
 2. **Continuous bursts** of HTTP requests using alternating GET/POST methods with realistic headers and JSON payloads.  
 3. **Sustained connection holding (“low & slow”)** to exhaust worker pools and keep threads occupied.  
 
-### 4. Environment
+## 4. Environment
 
-The system operates under normal conditions, but we contrast two configurations:
+### Pre-Mitigation (Pre-WAF)
 
-#### Pre-Mitigation (Pre-WAF)
+- Reverse proxy exposes the API Gateway directly.  
+- No deep inspection or adaptive throttling.  
+- Logs scattered across services.  
+- Gateway capacity is the only protection.
 
-- Basic reverse proxy exposes the API Gateway directly.  
-- No deep inspection or centralized throttling.  
-- Metrics and logs scattered across services, making correlation difficult.  
-- Burst handling relies solely on the gateway’s processing capacity.
+### Post-Mitigation (Post-WAF)
 
-#### Post-Mitigation (Post-WAF)
+- `rootly-waf` positioned **in front of** the reverse proxy.  
+- Request inspection using CRS + custom rules.  
+- Dynamic rate limiting by IP, route, or payload size.  
+- Structured logs and unified metrics.
 
-- `rootly-waf` positioned in front of the gateway with CRS + custom rules.  
-- Dynamic rate limiting per IP, route, and payload size.  
-- Structured logging and unified metrics (blocked requests, anomaly scores).
 
 ### 5. Expected Response
 

@@ -931,7 +931,7 @@ Adopting the WAF-hosted reverse proxy converted an unbounded ingress path into a
 In this scenario, the system faces a sustained **Layer-7 DoS attack** initiated by a single malicious client repeatedly sending legitimate-looking HTTP requests to its public API endpoints.  
 Initially, a plain NGINX reverse proxy acts as the only public entry point, forwarding all traffic to the API Gateway without deep inspection or rate limiting.  
 This design exposes the system to resource exhaustion, high latency, and loss of availability.  
-To mitigate this weakness, the **Web Application Firewall (WAF) pattern** is applied so that the reverse proxy functionality is implemented inside the WAF, introducing intelligent traffic inspection and rate control mechanisms that detect and block malicious requests while maintaining service performance for legitimate users.
+To mitigate this weakness, the **Web Application Firewall (WAF) pattern** is applied by adding a WAF as an additional edge component in front of the existing reverse proxy, introducing intelligent traffic inspection and rate control mechanisms that detect and block malicious requests while maintaining service performance for legitimate users.
 
 - **Weakness:** The system exposes a single public entry point through an NGINX reverse proxy that only forwards traffic to the API Gateway without deep inspection or centralized rate limiting.
 - **Threat:** A malicious external client or automated script capable of generating a sustained stream of HTTP(S) requests that simulated legitimate traffic.
@@ -945,15 +945,15 @@ To mitigate this weakness, the **Web Application Firewall (WAF) pattern** is app
 The **Web Application Firewall (WAF) pattern** introduces a dedicated layer for **application-layer inspection and traffic control**.  
 It applies the *Detect Service Denial* and *Limit Resource Demand* architectural tactics to strengthen the system’s availability and resilience.
 
-By upgrading the existing reverse proxy into the WAF (`rootly-waf`) that fronts the API Gateway, the system gains the ability to:
+By adding a WAF as an additional edge component in front of the existing reverse proxy (rootly-waf), the system gains the ability to:
 
 - **Analyze and classify** HTTP requests using the OWASP Core Rule Set (CRS).  
 - **Detect anomalies and block malicious traffic** before it reaches backend services.  
 - **Apply dynamic rate limiting** by IP, route, or payload size.  
-- **Maintain service availability** with minimal latency degradation during high-volume attacks.  
+- **Maintain service availability** with minimal latency degradation during sustained request floods.
 - **Centralize telemetry** (blocked IPs, triggered rules, anomaly scores) for auditing and adaptive security tuning.
 
-This countermeasure mitigates the initial weakness by adding an **intelligent filtering and control mechanism** at the network edge, transforming the previously passive reverse proxy into an active protection layer capable of handling complex, distributed attacks.
+This countermeasure mitigates the initial weakness by placing an **intelligent inspection and throttling layer** at the network edge, ensuring that the previously passive reverse proxy receives only validated and rate-controlled traffic, which prevents API Gateway overload under Layer-7 DoS conditions.
 
 ### Summary
 
@@ -961,10 +961,10 @@ This countermeasure mitigates the initial weakness by adding an **intelligent fi
 
 | Aspect | **Before WAF (Reverse Proxy Only)** | **After WAF (WAF Pattern Applied)** |
 |--------|-------------------------------------|--------------------------------------|
-| **Response** | Reverse proxy forwards all requests directly to the API Gateway, allowing a single malicious client to overload the service and cause unresponsiveness. | WAF inspects and throttles abusive traffic, forwarding only traffic classified as legitimate to the API Gateway. |
-| **Response Measure** | API Gateway latency > 5 s, 502/503 errors after ~30 s, availability < 60% under sustained Layer-7 attack. | **99.2%–99.8% of hostile traffic blocked** before reaching the API Gateway; no HTTP 502/503 errors were observed during the post-mitigation attack runs, and allowed requests maintained **p75 latencies below 50 ms**, consistent with normal operation. |
+| **Response** | Reverse proxy forwards all requests directly to the API Gateway, allowing a single malicious client to overload the service and cause unresponsiveness. | WAF inspects and throttles abusive traffic, forwarding only traffic classified as legitimate to the reverse proxy and then to the API Gateway. |
+| **Response Measure** | API Gateway latency > 5 s, 502/503 errors after ~30 s, availability < 60% under sustained Layer-7 attack. | **99.2%–99.8% of hostile traffic blocked** before reaching the reverse proxy and API Gateway; no HTTP 502/503 errors were observed during the post-mitigation attack runs, and allowed requests maintained **p75 latencies below 50 ms**, consistent with normal operation. |
 
-The implementation of the WAF pattern effectively mitigates application-layer DoS attacks by inspecting and blocking malicious request patterns before they reach the API Gateway. Quantitative validation shows that the WAF filters **more than 99% of hostile traffic** during the attack scenario while keeping latency for legitimate requests low and avoiding gateway errors.
+The implementation of the WAF pattern effectively mitigates application-layer DoS attacks by inspecting and blocking malicious request patterns before they reach the reverse proxy and API Gateway. Quantitative validation shows that the WAF filters **more than 99% of hostile traffic** during the attack scenario while keeping latency for legitimate requests low and avoiding gateway errors.
 
 These results confirm a substantial improvement in **availability**, **performance stability**, and **observability**: the system remains responsive under hostile traffic, legitimate clients experience stable response times, and WAF logs provide an auditable trail of triggered rules and detected attacks.
 

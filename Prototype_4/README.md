@@ -55,7 +55,7 @@ Finally, users can access all this information through an intuitive interface, a
 
 Service Discovery ensures that internal callers (e.g., `api-gateway`, `ms-user-plant-management`) always find the authentication service even as replicas are restarted or rescheduled. Observability relies on **Docker logs** to detect registration or resolution issues early and drive remediation.
 
-![Service discovery scenario](images/service_discovery_sceneryP4.png)
+![Service discovery scenario](images/Service-Discovery-Pattern.png)
 
 #### 1. Artifact
 

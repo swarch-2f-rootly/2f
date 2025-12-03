@@ -30,7 +30,7 @@
     - [Caching](#caching)
   - [Reliability](#reliability)
     - [Service Discovery](#service-discovery)
-  - [Interoperability](#performance-and-scalability)
+  - [Interoperability](#interoperability)
   
 - [Prototype – Deployment Instructions](#deployment-instructions)
 
@@ -95,3 +95,42 @@ Validation driven by Docker log telemetry and HTTP outcomes:
 - **Successful Auth Call Rate:** Proportion of calls that reach a healthy `be-authentication-and-roles` instance (target: ~100% once DNS updates propagate).
 
 By tying Service Discovery to Docker log observability, the team gains immediate visibility into lookup issues and can react before authentication outages propagate to end users.
+
+---
+
+## Interoperability
+
+![Interoperability scenario](images/Interoperability-Scenery%20-%20P4.png)
+
+### Cyber-Physical Telemetry Ingestion
+
+The system must interoperate reliably with a cyber-physical component: a microcontroller that continuously streams sensor data to `lb-data-ingestion` and onward to `be-data-ingestion`.
+
+#### 1. Artifact
+
+**Device-to-Ingestion Contract:** REST/HTTP payload contract between the external microcontroller device and the ingestion layer (`lb-data-ingestion` → `be-data-ingestion`), including JSON schema, version headers, and authentication token.
+
+#### 2. Source
+
+**Cyber-physical microcontroller device** equipped with environmental sensors (temperature, humidity, soil metrics) sending telemetry frames every few seconds.
+
+#### 3. Stimulus
+
+Continuous telemetry stream (e.g., one sample per second) plus occasional firmware updates that may introduce new optional fields while keeping backward compatibility.
+
+#### 4. Environment
+
+Normal field operation with intermittent connectivity, standard network latency, and Dockerized backend running on `rootly-network`.
+
+#### 5. Response
+
+- `lb-data-ingestion` accepts connections and forwards payloads to `be-data-ingestion`.
+- `be-data-ingestion` validates schema/version, rejects malformed frames with clear HTTP errors, and enqueues valid messages to `queue-data-ingestion`.
+- Compatibility rules ensure older firmware payloads remain accepted; new optional fields are ignored or mapped without breaking processing.
+
+#### 6. Response Measure
+
+- **Ingestion Success Rate:** ≥99% of valid telemetry frames accepted during steady streaming.
+- **Schema Validation Errors:** <1% per hour for devices on supported firmware.
+- **Queue Lag:** Stable under continuous streaming (<1s added latency from `be-data-ingestion` to `queue-data-ingestion`).
+- **Error Transparency:** HTTP 4xx/5xx responses logged with device identifier for rapid troubleshooting when interoperability breaks.

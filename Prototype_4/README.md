@@ -59,7 +59,7 @@ Finally, users can access all this information through an intuitive interface, a
 ## Security
 ### Network Segmentation
 
-![component-and-connector-view](images/scNetworkSegmentationP3.png)
+![network-segmentation](images/scNetworkSegmentationP3.png)
 
 ### 1. Artifact
 
@@ -159,17 +159,6 @@ Where:
 
 This metric directly measures the effectiveness of the network perimeter and validates whether the Network Segmentation Pattern successfully implements the **Limit Access** security tactic.
 
-### Six Key Security Concepts in the Scenario
-
-| Concept | Definition | Description in Rootly's Scenario (Pre-Segmentation) |
-| :--- | :--- | :--- |
-| **Weakness** | A design flaw or inherent system susceptibility. | **Flat Network Architecture:** All services (Frontend, API Gateway, Database) are deployed on a single shared network segment. This lack of logical separation facilitates unauthorized discovery and lateral movement within the network, allowing an attacker who compromises one entry point to access other critical services. |
-| **Vulnerability** | The specific path or condition that allows a threat to materialize or exploit a weakness. | **Direct Backend Port Exposure:** Since all services are on the same host, an attacker who discovers the host's public IP can perform a port scan and potentially discover unauthenticated ports of sensitive backend services (e.g., API Gateway on port 8080) that were not designed for direct public consumption. |
-| **Threat** | The agent or motivation that executes the attack. | **External Malicious Actor/Automated Bot:** An individual or script originating from the public internet, actively probing the host's public IP to find accessible services and exploit vulnerabilities. This type of threat seeks breaches in the security perimeter. |
-| **Attack** | The sequence of actions performed by the threat to exploit the vulnerability. | **Network Reconnaissance and Direct Service Access:** The attacker executes an **Nmap scan** on the host's public IP to list all open ports. Subsequently, they attempt a direct connection or unauthorized API call (e.g., using `curl`) to a backend port, completely bypassing the Frontend's security checks. |
-| **Risk** | The probability that a threat exploits a weakness, causing a negative impact, considering the severity of the damage and the probability of occurrence. | **Data Leakage, Manipulation, and Service Disruption:** The primary risk is a high-impact **Data Breach** with high probability of occurrence, resulting in loss of **Confidentiality** (data exposed), **Integrity** (data modified or corrupted), and **Availability** (services saturated and unavailable). This can lead to operational shutdown of the system and cause severe reputational damage to the plant monitoring platform. |
-| **Countermeasure** | The architectural or implementation action taken to mitigate the risk. | **Network Segmentation Pattern:** Implementation of a **`rootly-public-network`** and a **`rootly-private-network`**. By removing port mappings from all backend components (API Gateway, backend services, databases, message queues, and storage systems) and isolating them exclusively on the private network, the direct access vulnerability is eliminated. The attacker can only reach the Frontend, which acts as a controlled single point of entry. All backend services, including authentication backends, analytics services, data processing services, PostgreSQL databases, InfluxDB, MinIO storage, and Kafka queues, are now completely inaccessible from external networks, protected by network-level isolation. |
-
 ### Countermeasure: Network Segmentation Pattern
 
 The Network Segmentation Pattern mitigates this security scenario by implementing a defense-in-depth strategy that isolates backend services from external access through:
@@ -222,7 +211,6 @@ This implements the **Limit Access** security tactic (Resist Attacks category), 
 
 **Validation Outcome:** The Network Segmentation Pattern successfully eliminated the architectural vulnerability, achieving a **100% reduction in external attack surface**. All 5+ previously vulnerable services are now completely inaccessible from external networks, while internal service communication remains fully functional through Docker's private network DNS resolution. The security objective of **zero successful external connections** was achieved and validated through simulated attack scenarios.
 
-**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: **[Network Segmentation Pattern Documentation](https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/network_segmentation/README.md)**
 
 ---
 ## Secure Channel
@@ -301,8 +289,6 @@ The Secure Channel Pattern mitigates the risk by:
 ### Summary
 
 Implementing the Secure Channel Pattern eliminates the exposure of sensitive data in transit, blocks credential theft and session hijacking, and preserves system functionality. All browser–frontend communication is now encrypted, fulfilling the security objective for data-in-transit protection.
-
-**💡 Note:** For technical details and visual evidence, see the [Secure Channel Pattern Documentation](https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/secure_channel/README.md).
 
 ---
 ## Reverse Proxy
@@ -422,8 +408,6 @@ Adopting the WAF-hosted reverse proxy converted an unbounded ingress path into a
 | **Response** | API gateway and downstream services absorb the entire flood, leading to saturation, restarts, and user-visible downtime. | The WAF reverse proxy throttles the attack, forwards only safe RPS to the gateway, and keeps legitimate sessions responsive. |
 | **Response Measure** | High latency, backend RPS mirrors attack volume, zero 429 shedding, elevated 5xx. | Latency within SLA, bounded backend RPS, significant 429 shedding, minimal 5xx. |
 
-**💡 Note on Architectural Pattern:** See the [Reverse Proxy Pattern Documentation](https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/reverse_proxy/README.md) for Nginx configuration, validation commands, and extended results.
-
 ---
 ## Web Application Firewall
 ![Web Application Firewall scenario](images/WAFPatternScenario.png)
@@ -468,9 +452,6 @@ This countermeasure mitigates the initial weakness by placing an **intelligent i
 The implementation of the WAF pattern effectively mitigates application-layer DoS attacks by inspecting and blocking malicious request patterns before they reach the reverse proxy and API Gateway. Quantitative validation shows that the WAF filters **more than 99% of hostile traffic** during the attack scenario while keeping latency for legitimate requests low and avoiding gateway errors.
 
 These results confirm a substantial improvement in **availability**, **performance stability**, and **observability**: the system remains responsive under hostile traffic, legitimate clients experience stable response times, and WAF logs provide an auditable trail of triggered rules and detected attacks.
-
-
-**💡 Note on Architectural Pattern:** See the [WAF Pattern Documentation](https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/Web%20Application%20Firewall/README.md) for Nginx configuration, mitigation strategy, and validation results.
 
 ---
 
@@ -525,8 +506,6 @@ The configuration applied included:
 The **Load Balancer pattern** successfully mitigated the initial performance bottleneck by distributing incoming traffic evenly across multiple backend instances.  
 Post-deployment metrics confirm measurable improvements in **response time**, **throughput**, and **scalability tolerance**, fulfilling the **Performance and Scalability** quality objectives for the Analytics Backend.
 
-**💡 Note on Architectural Pattern:** For a detailed review of the documented architectural pattern, please consult the full documentation here: [Load Balancer Documentation](https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/load%20balancer/load_balancer.md)
-
 ## Caching
 
 ![Scenario](images/scCachingP3.png)
@@ -566,7 +545,6 @@ The main configuration included:
 - TTL (Time-To-Live) policy to ensure freshness of cached data.  
 - Cache invalidation rules for data updates.  
 - Integration with backend metrics for cache hit/miss analysis.  
-
 
 ---
 

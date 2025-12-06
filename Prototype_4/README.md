@@ -54,14 +54,14 @@ Finally, users can access all this information through an intuitive interface, a
 ---
 
   
-# Quality Attributes
+## Quality Attributes
 
 ## Security
 ### Network Segmentation
 
 ![network-segmentation](images/scNetworkSegmentationP3.png)
 
-### 1. Artifact
+#### 1. Artifact
 
 **Critical Backend Components:** All system services and data stores that must remain internal and protected. This includes:
 - **API Gateway** (`api-gateway`): Central routing and orchestration service
@@ -70,7 +70,7 @@ Finally, users can access all this information through an intuitive interface, a
 - **Message Broker**: Kafka queue system (`queue-data-ingestion`)
 - **Storage Layers** (`stg-*`): MinIO object storage
 
-### 2. Source
+#### 2. Source
 
 An **External Malicious Actor** (individual or automated bot) originating from the **public Internet** (i.e., outside the defined internal network boundary).
 
@@ -80,7 +80,7 @@ An **External Malicious Actor** (individual or automated bot) originating from t
 - **Intent**: Unauthorized access to internal services and data
 - **Origin**: External public network, outside the trusted perimeter
 
-### 3. Stimulus
+#### 3. Stimulus
 
 The actor executes a series of network probes: **Direct External Connection Attempts** to specific, known internal service ports. The attempts (via tools like `cURL`, `psql`) target host ports potentially mapped to backend components (e.g., 8080, 5432, 8000-8003). 
 
@@ -92,7 +92,7 @@ The actor executes a series of network probes: **Direct External Connection Atte
 
 The focus is on **any traffic originating from outside the trusted internal network segment**.
 
-### 4. Environment
+#### 4. Environment
 
 The system is under **Normal Operation** with its **Current Network Configuration**. This configuration can be either:
 
@@ -110,7 +110,7 @@ The architecture utilizes the **Network Segmentation Pattern** (Public/Private i
 - Only the frontend has external access
 - Backend services communicate exclusively via the private network
 
-### 5. Response
+#### 5. Response
 
 The network infrastructure must **Process the External Connection Request** directed at the internal component. The network layer's response will be one of three outcomes:
 
@@ -130,7 +130,7 @@ The network infrastructure must **Process the External Connection Request** dire
 
 The system/network tools must accurately **Log the Network Access Outcome** for every external attempt, enabling measurement and validation.
 
-### 6. Response Measure
+#### 6. Response Measure
 
 The system's security is validated by the total count of established connections, which represents a successful breach of the network perimeter:
 
@@ -159,7 +159,7 @@ Where:
 
 This metric directly measures the effectiveness of the network perimeter and validates whether the Network Segmentation Pattern successfully implements the **Limit Access** security tactic.
 
-### Countermeasure: Network Segmentation Pattern
+#### Countermeasure: Network Segmentation Pattern
 
 The Network Segmentation Pattern mitigates this security scenario by implementing a defense-in-depth strategy that isolates backend services from external access through:
 
@@ -173,7 +173,7 @@ The Network Segmentation Pattern mitigates this security scenario by implementin
 
 This approach implements the "Limit Access" security tactic by ensuring external attackers cannot directly reach internal services, forcing all traffic through the authenticated frontend gateway.
 
-### Comparative Security Assessment
+#### Comparative Security Assessment
 
 
 | Metric | Pre-Segmentation | Post-Segmentation | Improvement |
@@ -187,7 +187,7 @@ This approach implements the "Limit Access" security tactic by ensuring external
 | **Authentication Bypass Possible** | Yes | No | Security control enforced |
 
 
-### Summary
+#### Summary
 
 The Network Segmentation Pattern addresses a critical architectural weakness in Rootly's initial deployment: a flat network architecture where all components shared a single Docker network with multiple host port mappings, exposing internal services (API Gateway, databases, message brokers) directly to external networks.
 
@@ -199,7 +199,7 @@ The Network Segmentation Pattern addresses a critical architectural weakness in 
 
 This implements the **Limit Access** security tactic (Resist Attacks category), establishing network-level perimeter defense as a complementary layer to application-level security.
 
-## Verification – Comparative Analysis
+#### Verification – Comparative Analysis
 
 | Aspect | **Before Network Segmentation** | **After Network Segmentation** |
 |--------|----------------------------------|--------------------------------|
@@ -217,37 +217,37 @@ This implements the **Limit Access** security tactic (Resist Attacks category), 
 
 ![Secure Channel Scenario](images/secure_channel.png)
 
-### 1. Artifact
+#### 1. Artifact
 
 **Frontend Web Service (`fe-web`)**: The main entry point for user interaction, responsible for transmitting sensitive data (credentials, tokens, sensor payloads) between the browser and backend services.
 
-### 2. Source
+#### 2. Source
 
 **Network Attacker**: Any internal or external actor with access to the network (Wi-Fi, LAN, Docker bridge, etc.) capable of intercepting traffic between the browser and frontend.
 
-### 3. Stimulus
+####  3. Stimulus
 
 The attacker uses packet capture tools (Wireshark, tcpdump) to intercept HTTP traffic, aiming to read credentials, tokens, and user data in plaintext.
 
-### 4. Environment
+####  4. Environment
 
 #### Pre–Secure Channel (Baseline)
 - Communication between browser and frontend occurs over unencrypted HTTP.
 - All requests and responses are readable in transit.
 - Sensitive data is exposed to anyone with network access.
 
-#### Post–Secure Channel (Validation)
+#####  Post–Secure Channel (Validation)
 - HTTPS/TLS is enforced for all browser–frontend communication.
 - All packets are encrypted; only TLS handshake and encrypted application data are visible.
 
-### 5. Response
+####  5. Response
 
 The system must ensure that all sensitive data in transit is protected from interception and tampering:
 - **Encryption:** All traffic is encrypted using TLS.
 - **Integrity:** Data cannot be modified without detection.
 - **Authentication:** Only trusted endpoints are accessible.
 
-### 6. Response Measure
+####  6. Response Measure
 
 The effectiveness of the Secure Channel is measured by the number of readable packets containing sensitive data:
 
@@ -257,7 +257,7 @@ The effectiveness of the Secure Channel is measured by the number of readable pa
 | Credentials exposed         | Yes                | No                  | No          |
 | Data tampering possible     | Yes                | No                  | No          |
 
-### Security Concepts Overview
+####  Security Concepts Overview
 
 | Concept         | Description in Secure Channel Scenario                  |
 |-----------------|--------------------------------------------------------|
@@ -268,7 +268,7 @@ The effectiveness of the Secure Channel is measured by the number of readable pa
 | **Vulnerability**| Plaintext transmission of sensitive information       |
 | **Countermeasure**| Enforce HTTPS/TLS (Secure Channel Pattern)           |
 
-### Countermeasure: Secure Channel Pattern
+####  Countermeasure: Secure Channel Pattern
 
 The Secure Channel Pattern mitigates the risk by:
 - Enforcing HTTPS/TLS for all browser–frontend communication.
@@ -276,7 +276,7 @@ The Secure Channel Pattern mitigates the risk by:
 - Updating all endpoints and environment variables to use `https://`.
 - Validating that intercepted packets are encrypted and unreadable.
 
-### Validation – Before vs. After
+####  Validation – Before vs. After
 
 | Aspect                | Before Secure Channel           | After Secure Channel            |
 |-----------------------|---------------------------------|---------------------------------|
@@ -286,18 +286,18 @@ The Secure Channel Pattern mitigates the risk by:
 | **Integrity**         | Vulnerable to tampering         | Protected by TLS                |
 | **Functionality**     | Normal operation                | Normal operation (no impact)    |
 
-### Summary
+####  Summary
 
 Implementing the Secure Channel Pattern eliminates the exposure of sensitive data in transit, blocks credential theft and session hijacking, and preserves system functionality. All browser–frontend communication is now encrypted, fulfilling the security objective for data-in-transit protection.
 
 ---
-## Reverse Proxy
+###  Reverse Proxy
 
 Rootly implements the reverse proxy pattern inside the Web Application Firewall (WAF). The WAF is therefore the only public-facing component for frontend traffic, simultaneously enforcing inspection rules and the proxy features described below.
 
 ![Reverse proxy flood scenario](images/reverse_proxy_sceneryP3.png)
 
-### 1. Artifact
+####  1. Artifact
 
 **Ingress Path for HTTP/REST Traffic:** Public-facing connector that carries requests from `fe-mobile`, `fe-web` (through the WAF), and automation clients toward the `api-gateway` and all downstream microservices.
 
@@ -305,7 +305,7 @@ Rootly implements the reverse proxy pattern inside the Web Application Firewall 
 - **API Gateway (`api-gateway`):** Central orchestrator whose overload cascades to the rest of the platform.
 - **Backend Microservices:** Analytics, authentication, plant management, and processing services that depend on a healthy gateway.
 
-### 2. Source
+####  2. Source
 
 **Botnet or Automated Scraper.** Distributed actors, or a single runaway integration, capable of generating sustained HTTP floods from the public internet.
 
@@ -314,7 +314,7 @@ Rootly implements the reverse proxy pattern inside the Web Application Firewall 
 - Knowledge: Public `/api/*` routes exposed to clients.
 - Objective: Deny service by starving shared resources rather than stealing data.
 
-### 3. Stimulus
+####  3. Stimulus
 
 The threat launches **high-concurrency bursts** against popular REST endpoints:
 1. Baseline probe verifies available routes (e.g., `/api/v1/metrics`).
@@ -346,7 +346,7 @@ When the WAF reverse proxy is **not** yet implemented, the system responds to fl
 
 This lack of an edge reverse proxy means `api-gateway` must process the entire flood, leading to CPU saturation, increased latency, and cascading 5xx errors. The remainder of this section explains how embedding the reverse proxy inside the WAF fixes those gaps.
 
-### 6. Response Measure
+####  6. Response Measure
 
 Validation focuses on runtime metrics collected during the flood test:
 
@@ -362,7 +362,7 @@ Validation focuses on runtime metrics collected during the flood test:
 | **HTTP 5xx rate** | 20–40% | <2% | Failures drop because services avoid overload. |
 | **HTTP 429 rate** | 0 | High (shed traffic) | Edge now rejects abusive bursts immediately. |
 
-### Security Concepts Overview
+####  Security Concepts Overview
 
 | Concept | Description in the Reverse Proxy Scenario |
 | --- | --- |
@@ -373,7 +373,7 @@ Validation focuses on runtime metrics collected during the flood test:
 | **Vulnerability** | Unbounded ingress path allows every attack packet to reach internal services. |
 | **Countermeasure** | Implement the reverse proxy inside the WAF between clients and `api-gateway`, enforcing throttling, caching hot responses, and centralizing inspection. |
 
-### Countermeasure: Reverse Proxy Pattern
+####  Countermeasure: Reverse Proxy Pattern
 
 The **Reverse Proxy Pattern** establishes a guarded ingress path:
 
@@ -381,14 +381,14 @@ The **Reverse Proxy Pattern** establishes a guarded ingress path:
 - The HTTP/REST connector between `fe-mobile` and the backend now includes rate limiting, burst controls, and optional caching to keep forwarded RPS within safe envelopes.
 - Observability improves because every external HTTP request is logged in one place, accelerating detection and response.
 
-### Validation – Before vs. After
+####  Validation – Before vs. After
 
 | State | Response | Response Metrics |
 | --- | --- | --- |
 | **Before reverse proxy** | `api-gateway` processes every spike, saturates CPU, and propagates latency/timeouts to clients. | P95 latency >3 s, backend RPS ≈ attack RPS (~1000), 20–40% 5xx, no `429` shedding. |
 | **After reverse proxy** | The WAF reverse proxy sheds overflow (HTTP 429) and forwards only bounded traffic through the HTTP/REST connector, keeping services responsive. | P95 latency <300 ms, forwarded RPS capped (~200–300), <2% 5xx, high `429` count evidencing throttling. |
 
-### Comparative Security Assessment
+####  Comparative Security Assessment
 
 | Metric | Pre–Reverse Proxy | Post–Reverse Proxy | Improvement |
 | --- | --- | --- | --- |
@@ -397,11 +397,11 @@ The **Reverse Proxy Pattern** establishes a guarded ingress path:
 | **Client experience during flood** | Timeouts and failures | SLA respected | Availability restored |
 | **Detection & observability** | Distributed per-service logs | Centralized at proxy | Faster triage |
 
-### Summary
+#### Summary
 
 Adopting the WAF-hosted reverse proxy converted an unbounded ingress path into a controlled choke point that enforces the **Limit Access** tactic. Legitimate `fe-mobile` sessions maintain service quality even when hostile traffic is present, because overload is absorbed and rejected at the edge.
 
-## Verification – Comparative Analysis
+###  Verification – Comparative Analysis
 
 | Aspect | **Before Reverse Proxy** | **After Reverse Proxy** |
 | --- | --- | --- |
@@ -409,10 +409,10 @@ Adopting the WAF-hosted reverse proxy converted an unbounded ingress path into a
 | **Response Measure** | High latency, backend RPS mirrors attack volume, zero 429 shedding, elevated 5xx. | Latency within SLA, bounded backend RPS, significant 429 shedding, minimal 5xx. |
 
 ---
-## Web Application Firewall
+###  Web Application Firewall
 ![Web Application Firewall scenario](images/WAFPatternScenario.png)
 
-### Scenario Snapshot
+####  Scenario Snapshot
 In this scenario, the system faces a sustained **Layer-7 DoS attack** initiated by a single malicious client repeatedly sending legitimate-looking HTTP requests to its public API endpoints.  
 Initially, a plain NGINX reverse proxy acts as the only public entry point, forwarding all traffic to the API Gateway without deep inspection or rate limiting.  
 This design exposes the system to resource exhaustion, high latency, and loss of availability.  
@@ -425,7 +425,7 @@ To mitigate this weakness, the **Web Application Firewall (WAF) pattern** is app
 - **Vulnerability:** Absence of application-layer protection and global throttling. The reverse proxy lacks mechanisms to identify and block abusive request patterns.
 - **Countermeasure:** Integrate a **Web Application Firewall (WAF)** with the reverse proxy/API Gateway edge so that every request is inspected, filtered, and throttled before it reaches backend services.
 
-### Explanation of the Countermeasure
+####  Explanation of the Countermeasure
 
 The **Web Application Firewall (WAF) pattern** introduces a dedicated layer for **application-layer inspection and traffic control**.  
 It applies the *Detect Service Denial* and *Limit Resource Demand* architectural tactics to strengthen the system’s availability and resilience.
@@ -440,9 +440,9 @@ By adding a WAF as an additional edge component in front of the existing reverse
 
 This countermeasure mitigates the initial weakness by placing an **intelligent inspection and throttling layer** at the network edge, ensuring that the previously passive reverse proxy receives only validated and rate-controlled traffic, which prevents API Gateway overload under Layer-7 DoS conditions.
 
-### Summary
+####  Summary
 
-### Verification 
+#### Verification 
 
 | Aspect | **Before WAF (Reverse Proxy Only)** | **After WAF (WAF Pattern Applied)** |
 |--------|-------------------------------------|--------------------------------------|
@@ -455,8 +455,8 @@ These results confirm a substantial improvement in **availability**, **performan
 
 ---
 
-# Performance and Scalability
-## Load Balancer
+##  Performance and Scalability
+###  Load Balancer
 
 ![Scenario](images/scLoadBalancerP3.png)
 During peak usage, approximately **4,000 HTTP requests were sent within 1 or 2 seconds** (to simulate concurrency) from multiple external clients accessing the `/graphql_analytics` endpoint. Forwarded all requests directly to a single backend instance, causing **increased response times, uneven workload distribution, and CPU saturation**.  Although the system remained functional, **response time variance and throughput degradation** became evident as concurrency grew beyond ~3,000 users, exposing limitations in scalability and responsiveness.
@@ -471,11 +471,11 @@ During peak usage, approximately **4,000 HTTP requests were sent within 1 or 2 s
 | **Response** | System processes all requests, logging latency and HTTP status outcomes |
 | **Response Measure** | Primary metrics: Response time variance (%) and failed request rate per test period |
 
-### Baseline Load Test (Before Load Balancer)
+####  Baseline Load Test (Before Load Balancer)
 
 ![baseline-performance](images/sin_lbGraphql_analytics_performance.png)
 
-### Countermeasure Implementation: Load Balancer Pattern
+####  Countermeasure Implementation: Load Balancer Pattern
 
 **Load Balancer** was introduced in front of the analytics backend cluster to enable **request distribution** across multiple instances.  
 The configuration applied included:
@@ -484,11 +484,11 @@ The configuration applied included:
 - Disabled session persistence to prevent node saturation  
 - Continuous metric collection via Prometheus and Grafana
 
-###  Implementation Load Balancer Results**
+####   Implementation Load Balancer Results**
 
 ![post-lb-performance](images/con_lbGraphql_analytics_performance_avg_3iter.png)
 
-### Performance Metrics Comparison
+####  Performance Metrics Comparison
 
 | **Metric** | **Before Load Balancer** | **After Load Balancer** | **Observation / Technical Impact** |
 |-------------|---------------------------|---------------------------|------------------------------------|
@@ -501,12 +501,12 @@ The configuration applied included:
 | **Scalability Behavior** | Linear degradation under stress | Stable performance across replicas | ↑ Horizontal scalability achieved via load distribution. |
 | **System Availability** | Degraded under concurrent load | Sustained at 99%+ | ↑ Improved reliability and uptime under concurrent access. |
 
-### Summary
+####  Summary
 
 The **Load Balancer pattern** successfully mitigated the initial performance bottleneck by distributing incoming traffic evenly across multiple backend instances.  
 Post-deployment metrics confirm measurable improvements in **response time**, **throughput**, and **scalability tolerance**, fulfilling the **Performance and Scalability** quality objectives for the Analytics Backend.
 
-## Caching
+###  Caching
 
 ![Scenario](images/scCachingP3.png)
 
@@ -523,7 +523,7 @@ Post-deployment metrics confirm measurable improvements in **response time**, **
 
 ---
 
-## Baseline Load Test (Before Caching Implementation)
+###  Baseline Load Test (Before Caching Implementation)
 
 ![post-lb-performance](images/con_lbGraphql_analytics_performance_avg_3iter.png)
 
@@ -536,7 +536,7 @@ Post-deployment metrics confirm measurable improvements in **response time**, **
 | **Throughput (req/s)** | 5.86 | 113.96 | 118.30 |
 
 ---
-## Countermeasure Implementation: Caching Pattern
+###  Countermeasure Implementation: Caching Pattern
 
 The **Cache-Aside pattern** was implemented within the analytics backend to store frequently accessed query results in memory.  
 The main configuration included:

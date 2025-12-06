@@ -622,11 +622,13 @@ Full Service Outage, the complete system becomes unavailable. All incoming reque
 #### Response Measure
 No Failover / Availability Drops to 0%, since the system depends on a single machine, there is no automated failover or backup instance. Recovery requires manual intervention, leading to extended downtime and a temporary total loss of availability.
 
-# Pattern: Cluster
+#### Architectural Pattern: Cluster
 
 This pattern improves system availability by deploying multiple independent nodes that function as a unified logical system. Instead of relying on a single machine, the system is replicated or distributed across several nodes capable of sharing or splitting the workload.
 
 When a node fails, other nodes continue operating, minimizing service disruption and preventing full system outages. The pattern focuses on eliminating the single point of failure inherent in one-machine deployments.The pattern itself does not define how node failures are detected or how traffic is redirected; those behaviors are introduced later through availability tactics such as heartbeat monitoring, node health checks, or automated failover mechanisms.
+
+#### Architectural Tactic: 
 
 #### Verification 
 

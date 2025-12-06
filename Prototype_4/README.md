@@ -233,14 +233,18 @@ This pattern improves system availability by deploying multiple independent node
 
 When a node fails, other nodes continue operating, minimizing service disruption and preventing full system outages. The pattern focuses on eliminating the single point of failure inherent in one-machine deployments.The pattern itself does not define how node failures are detected or how traffic is redirected; those behaviors are introduced later through availability tactics such as heartbeat monitoring, node health checks, or automated failover mechanisms.
 
-#### Architectural Tactic: 
+#### Architectural Tactic: N+1
+This tactic ensures high availability by maintaining one additional unit of capacity beyond what the system needs to operate normally. With N active instances handling the workload and one extra instance or capacity margin as backup, the system can tolerate the failure of any single component without dropping below the required operational level. 
+
+- This prevents single points of failure and allows the service to continue functioning even during unexpected outages.
+
+In GKE, the N+1 tactic is naturally supported through ReplicaSets, which automatically recreate failed pods to maintain the desired number of running instances. Additionally, features like node auto-repair and node auto-provisioning ensure that if a node becomes unhealthy, the platform replaces or heals it, preserving the extra capacity needed to sustain the N+1 redundancy model.
+
 
 #### Verification 
 
 
 ### Replication pattern db caching
-
-
 
 
 

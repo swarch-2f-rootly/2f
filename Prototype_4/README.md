@@ -551,8 +551,84 @@ The main configuration included:
 ## Reliability
 
 ### Replication pattern lb analytics
+#### Active Redundancy (Hot Spare) for lb-analytics
+
+![cluster scenario](images/.png)
+
+This scenario describes the reliability validation for the lb-analytics component by applying the Active Redundancy architectural pattern and the Redundant Spare tactic. The objective is to demonstrate that the platform maintains availability even when one replica becomes overloaded or unavailable, and that the second replica—operating as a hot spare—can immediately sustain analytics traffic without noticeable service degradation.
+
+#### Artifact
+
+The artifact under evaluation is the lb-analytics subsystem and its surrounding load-balancing configuration. The lb-analytics service is responsible for processing telemetric and operational analytics, supporting downstream decision-making processes, and serving REST or GraphQL endpoints that expose analytics results to internal clients. 
+
+#### Source
+
+The source of the stimulus is a controlled load-generation client capable of producing high volumes of concurrent requests. This client may represent legitimate operational usage at peak conditions or a synthetic stress workload.
+
+#### Stimulus
+
+The stimulus consists of inducing the failure of one active lb-analytics instance. This may be triggered in two possible ways. The first is a high-intensity workload that saturates CPU or memory resources, causing the instance to degrade, become unresponsive, or crash. The second approach is a deliberate operational interruption, such as killing the service, introducing a network partition, or stopping the container or virtual machine. Regardless of the method, the stimulus results in replica A transitioning into an unavailable state while traffic continues to be routed to the load balancer.
+
+#### Environment
+
+In the baseline configuration, only one lb-analytics instance is available. The load balancer has no alternative backend, and therefore, all analytics traffic flows to the single replica. When this instance becomes saturated or fails, clients experience slow responses, request timeouts, or complete unavailability. The system has no backup capacity to absorb the load.
+
+#### Response
+
+When the system operates without Active Redundancy, any failure or overload of the lb-analytics instance directly results in degraded service. Increased latency, elevated error rates, and unavailability are visible at the client level. Analytics requests may accumulate in queues, exceed processing limits, or return 5xx errors.
+
+#### Response Measure
+
+The metrics used to validate the scenario focus on latency, throughput, failover time, and stability during and after the induced failure.In the baseline configuration, the platform experiences significant performance degradation. Latency increases dramatically, backend error rates rise, and clients encounter visible downtime. Throughput drops as the single replica collapses under load or becomes unavailable.
+
+#### Architectural Pattern: Active Redundancy (Hot Spare)
+
+Active Redundancy is an architectural pattern in which multiple instances of the same component operate in parallel and remain fully active at all times. None of the replicas are passive or waiting to be promoted. Instead, each instance continuously processes requests, maintains synchronized internal state, and stays prepared for immediate takeover in the event of a fault in any sibling replica.
+
+The pattern is designed to support fail-operational behavior rather than failover behavior. Because each replica is already hot and running, the system does not require activation or initialization time when a failure occurs. This drastically reduces Mean Time to Repair (MTTR) and ensures that service continuity is preserved even when a primary instance becomes unresponsive. In the context of lb-analytics, this pattern enables multiple analytics processors to receive and handle requests concurrently while being balanced by the load balancer. Should one instance fail under extreme load or abrupt termination, the remaining active instance continues serving the analytics workload with no interruption.
+
+#### Architectural Tactic: Redundant Spare
+
+The Redundant Spare tactic focuses on preparing additional instances of a component so that the system can rapidly recover from faults. While the Active Redundancy pattern defines how replicas operate concurrently, the Redundant Spare tactic defines how the system anticipates failures by ensuring that additional operational capacity is already in place. The tactic emphasizes preparation and repair: preparation in the form of duplicate active lb-analytics nodes that share identical responsibilities, and repair in the form of fast rerouting of traffic once a failure is detected.
+
+By applying this tactic, recovery does not depend on restarting, scaling up, or reconfiguring services. The spare instance is already active, synchronized, and integrated behind the load balancer. Therefore, when the primary instance fails—whether due to overload, resource exhaustion, or simulated node termination—the spare replica immediately absorbs the remaining traffic. The tactic thus enables extremely low recovery time and stable performance during unexpected operational disruptions.
+
+#### Verification 
+
+The system is designed to support high request volumes with strict latency constraints. As part of the reliability assessment, two active replicas (A and B) operate simultaneously. During the verification test, replica A is intentionally stressed or terminated to observe whether replica B continues serving traffic with minimal disruption.
+
+---
 
 ### Cluster pattern
+![cluster scenario](images/.png)
+
+This scenario models the system operating entirely on a single machine, where all application services, the database, analytics engine, API layer, and background components share the same execution environment. During normal user activity, a machine-level fault suddenly occurs—such as an OS crash, hardware malfunction, or unexpected shutdown—causing every running component to fail simultaneously. Because the entire platform depends on a single node, the failure results in a complete service outage: all requests time out, processes terminate abruptl.
+
+#### Source
+User Request, the requests originate from end users interacting with the system during normal usage. The system is expected to respond promptly and reliably to these interactions.
+
+#### Stimulus
+Machine Failure in a Single-Node Environment, a failure occurs on the only machine hosting the entire system. This may include hardware malfunction, operating system crash, or an unexpected shutdown that disrupts all running services.
+
+#### Environment
+Normal Operations,the system is running under standard load conditions. No abnormal spikes, maintenance tasks, or external disruptions are present when the failure occurs.
+
+#### Artifact
+Entire System (Single-Machine Deployment), all components—application logic, APIs, database, frontend, background workers, and internal services—are deployed on a single physical or virtual machine. There is no redundancy or distribution of workload across multiple nodes.
+
+#### Response
+Full Service Outage, the complete system becomes unavailable. All incoming requests fail with timeouts or error responses, and users cannot access any functionality until the machine is restored.
+
+#### Response Measure
+No Failover / Availability Drops to 0%, since the system depends on a single machine, there is no automated failover or backup instance. Recovery requires manual intervention, leading to extended downtime and a temporary total loss of availability.
+
+# Pattern: Cluster
+
+This pattern improves system availability by deploying multiple independent nodes that function as a unified logical system. Instead of relying on a single machine, the system is replicated or distributed across several nodes capable of sharing or splitting the workload.
+
+When a node fails, other nodes continue operating, minimizing service disruption and preventing full system outages. The pattern focuses on eliminating the single point of failure inherent in one-machine deployments.The pattern itself does not define how node failures are detected or how traffic is redirected; those behaviors are introduced later through availability tactics such as heartbeat monitoring, node health checks, or automated failover mechanisms.
+
+#### Verification 
 
 ### Replication pattern db caching
 
@@ -562,7 +638,7 @@ Service Discovery ensures that internal callers (e.g., `api-gateway`, `ms-user-p
 
 ![Service discovery scenario](images/Service-Discovery-Pattern.png)
 
-#### 1. Artifact
+#### Artifact
 
 **Service Lookup Path for Authentication:** Runtime resolution of the `be-authentication-and-roles` service name to healthy container instances.
 
@@ -571,26 +647,26 @@ Service Discovery ensures that internal callers (e.g., `api-gateway`, `ms-user-p
 - **Internal Clients:** `api-gateway`, `ms-user-plant-management`, and background jobs that call authentication APIs.
 - **Observability:** Centralized `docker compose logs` stream used to detect lookup errors (`no such host`, `connection refused`) and container health changes.
 
-#### 2. Source
+#### Source
 
 **Internal service callers** (gateway and backend microservices) performing REST calls against `http://be-authentication-and-roles:8000`. They depend on name resolution and healthy targets to proceed.
 
-#### 3. Stimulus
+#### Stimulus
 
 - A new replica of `be-authentication-and-roles` is started or restarted.
 - A caller issues authentication or role checks immediately after the change.
 - DNS propagation or container health takes a few seconds to stabilize.
 
-#### 4. Environment
+#### Environment
 
 Normal operations with Docker Compose on `rootly-network`, dynamic container restarts/scaling, and aggregated logs collected via `docker compose logs -f`.
 
-#### 5. Response
+#### Response
 
 - **Before Service Discovery discipline:** Callers experience intermittent `502/503` or `no such host be-authentication-and-roles` while the new container comes up; failures surface only when user flows break.
 - **After Service Discovery discipline:** Docker DNS provides up-to-date mappings; log-based observers watch for resolution errors and unhealthy containers, triggering a fast restart or alert when needed. Callers automatically pick a healthy instance once available.
 
-#### 6. Response Measure
+#### Response Measure
 
 Validation driven by Docker log telemetry and HTTP outcomes:
 

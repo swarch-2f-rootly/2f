@@ -285,36 +285,35 @@ Validation driven by Docker log telemetry and HTTP outcomes:
 
 By tying Service Discovery to Docker log observability, the team gains immediate visibility into lookup issues and can react before authentication outages propagate to end users.
 
+#### Architectural Pattern:
+
+#### Architectural Tactic: 
+
 ---
 
 ## Interoperability
 
 ![Interoperability scenario](images/Interoperability-Scenery%20-%20P4.png)
 
-### Cyber-Physical Telemetry Ingestion
-
-**Pattern – Data Ingestion and Validation Pipeline:** Telemetry arrives through `lb-data-ingestion`, is validated/normalized in `be-data-ingestion`, and is queued to `queue-data-ingestion` so downstream processors stay decoupled from field noise, bursts, or schema drift.  
-**Tactics – Schema Validation, Backward-Compatibility Handling, Fault Isolation:** Strict JSON schema checks guard the boundary; firmware version headers plus optional fields preserve backward compatibility; malformed frames are isolated (logged/dropped) so healthy traffic continues without blocking threads or queues.
-
 The system must interoperate reliably with a cyber-physical component: a microcontroller continuously streams sensor data to `lb-data-ingestion`, which forwards to `be-data-ingestion` where validation, normalization, and buffering protect the pipeline.
 
-#### 1. Artifact
+#### Artifact
 
 **Device-to-Ingestion Contract:** REST/HTTP payload contract between the microcontroller and the ingestion layer (`lb-data-ingestion` → `be-data-ingestion`), including JSON schema, version headers, authentication token, and the validation/queuing steps before reaching `queue-data-ingestion`.
 
-#### 2. Source
+#### Source
 
 **Cyber-physical microcontroller device** equipped with environmental sensors (temperature, humidity, soil metrics) sending telemetry frames every few seconds.
 
-#### 3. Stimulus
+#### Stimulus
 
 Continuous telemetry stream (e.g., one sample per second) plus occasional firmware updates introducing new optional fields. Some frames may arrive late, duplicated, or with minor shape differences from older firmware.
 
-#### 4. Environment
+#### Environment
 
 Normal field operation with intermittent connectivity, standard network latency, and Dockerized backend on `rootly-network`; ingestion replicas may scale horizontally behind `lb-data-ingestion`.
 
-#### 5. Response
+#### Response
 
 - `lb-data-ingestion` accepts connections and forwards payloads to `be-data-ingestion`.
 - `be-data-ingestion` performs schema validation/version checks, normalizes units/field names, rejects malformed frames with clear HTTP errors, and enqueues valid messages to `queue-data-ingestion`.
@@ -322,10 +321,16 @@ Normal field operation with intermittent connectivity, standard network latency,
 - Fault isolation prevents a bad batch (invalid schema, wrong token) from blocking the pipeline: invalid frames are dropped, logged with device metadata, and do not stall healthy traffic.
 - Queued delivery decouples `ms-data-processing`, so ingestion remains responsive even if downstream consumers slow down.
 
-#### 6. Response Measure
+#### Response Measure
 
 - **Ingestion Success Rate:** ≥99% of valid telemetry frames accepted during steady streaming.
 - **Schema Validation Errors:** <1% per hour for devices on supported firmware; spikes trigger alerting.
 - **Queue Lag:** Stable under continuous streaming (<1s added latency from `be-data-ingestion` to `queue-data-ingestion`), even when `ms-data-processing` is throttled.
 - **Fault Isolation Effectiveness:** No ingestion outage when a subset of devices sends malformed payloads (measured by continued acceptance of well-formed frames).
 - **Error Transparency:** HTTP 4xx/5xx responses and validation failures logged with device identifier and firmware version for rapid troubleshooting when interoperability breaks.
+
+#### Architectural Pattern: Data Ingestion and Validation Pipeline
+ Telemetry arrives through `lb-data-ingestion`, is validated/normalized in `be-data-ingestion`, and is queued to `queue-data-ingestion` so downstream processors stay decoupled from field noise, bursts, or schema drift.  
+
+#### Architectural Tactic: Schema Validation, Backward-Compatibility Handling, Fault Isolation
+Strict JSON schema checks guard the boundary; firmware version headers plus optional fields preserve backward compatibility; malformed frames are isolated (logged/dropped) so healthy traffic continues without blocking threads or queues.

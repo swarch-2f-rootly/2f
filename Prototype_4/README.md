@@ -357,7 +357,7 @@ The verification process will confirm that the Active Redundancy pattern and Red
 
 ### Replication pattern lb analytics
 
-![cluster scenario](images/replicationLB.png)
+![cluster scenario](images/clusterP4.png)
 
 This scenario describes the reliability validation for the lb-analytics component by applying the Active Redundancy architectural pattern and the Redundant Spare tactic. The objective is to demonstrate that the platform maintains availability even when one replica becomes overloaded or unavailable, and that the second replica—operating as a hot spare—can immediately sustain analytics traffic without noticeable service degradation.
 

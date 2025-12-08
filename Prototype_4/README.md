@@ -250,7 +250,110 @@ The implementation of the **Cache-Aside** pattern has provided significant advan
 
 ---
 
-## Reliability
+# Reliability
+
+## Replication pattern Reverse Proxy
+
+<img width="1331" height="735" alt="image" src="https://github.com/user-attachments/assets/7bf3b2ce-e9b8-4034-8357-8454cddd97a5" />
+
+This scenario describes the baseline reliability assessment for the Reverse Proxy component. The objective is to document the current system behavior when the reverse-proxy fails, establishing metrics that will later be compared against the improved system after applying the Active Redundancy architectural pattern and the Redundant Spare tactic in GCP Kubernetes cluster.
+
+### Artifact
+
+The artifact under evaluation is the `reverse-proxy` component in its current baseline configuration. The `reverse-proxy` service operates in the private network and is responsible for routing validated traffic to the frontend SSR (Next.js) and API Gateway services. The `rootly-waf` service acts as an observer and entry point, responsible for terminating TLS/SSL connections, applying ModSecurity (OWASP CRS) rules for application-layer protection, enforcing rate limiting policies, and generally verifying traffic that goes directly to the single reverse-proxy instance.
+
+**Current Network Architecture:**
+- `rootly-waf`: Connected to both `rootly-public-network` and `rootly-private-network`, exposing ports 80/443 publicly
+- `reverse-proxy`: Single container instance connected only to `rootly-private-network`, exposing port 443 internally
+
+In the current baseline configuration, the reverse-proxy operates as a single instance without redundancy:
+- `reverse-proxy`: Single container instance exposing port 443 internally (only in private network)
+- `rootly-waf`: Container (observer) that routes traffic directly to the single reverse-proxy instance
+
+The reverse-proxy represents a Single Point of Failure (SPOF). The reverse-proxy is critical for routing traffic to backend services. If the reverse-proxy fails, traffic cannot reach the frontend and API Gateway, even if the WAF remains operational.
+
+### Source
+
+The source of the stimulus is external clients making HTTPS requests to the platform. These clients may include:
+- End users accessing the web frontend through browsers
+- Client applications consuming REST or GraphQL APIs
+
+All external traffic enters the system through ports 80 (HTTP) and 443 (HTTPS), which are handled by the `rootly-waf` instance. The source generates continuous request streams that may vary from normal operational load to peak traffic conditions affecting availability.
+
+### Stimulus
+
+The stimulus consists of inducing the failure of one active reverse-proxy instance. This may be triggered in several possible ways, however we will employ:
+
+**Operational interruption**: Deliberate termination such as killing the service process, stopping the container, introducing a network partition, or shutting down the virtual machine.
+
+Regardless of the method, the stimulus results in the single reverse-proxy instance transitioning into an unavailable state.
+
+### Environment
+
+In the baseline configuration, only one `reverse-proxy` instance is available. The system has no alternative reverse-proxy backends, and therefore, all incoming traffic flows through the WAF instance to the single reverse-proxy instance. When the reverse-proxy instance becomes saturated or fails, clients experience slow responses, request timeouts, or complete unavailability. The system has no backup capacity to absorb the load.
+
+The environment conditions include:
+- System operating in production or active development
+- Normal to high incoming traffic loads
+- All backend services (frontend-ssr, api-gateway) functioning correctly
+- Docker network operational
+- Valid SSL certificates present
+- No redundant reverse-proxy instances available for failover
+
+### Response
+
+When the system operates without Active Redundancy, any failure or overload of the reverse-proxy instance directly results in degraded service:
+
+**If `reverse-proxy` fails:**
+- **502 Bad Gateway**: Errors when attempting to reach the reverse-proxy
+- **Upstream Timeout**: Timeouts in upstream connections
+- **Cascading Failures**: Traffic cannot reach backend services
+- **Service Unavailability**: Frontend and API Gateway become inaccessible despite being healthy
+- **Complete Traffic Block**: All requests fail to reach backend services
+
+At the client level, increased latency, elevated error rates, and unavailability are visible. Requests may accumulate, exceed processing limits, or return 5xx errors. User sessions are lost, and the user experience is severely degraded or completely unavailable.
+
+### Response Measure
+
+The metrics used to validate the scenario focus on mean time to repair and failover time during and after the induced failure. In the baseline configuration, the platform experiences significant performance degradation:
+
+| Metric | Baseline Value (Without Redundancy) | Impact |
+|--------|--------------------------------------|--------|
+| **MTTR (Mean Time To Repair)** | High (30-60 seconds minimum) | ⚠️ Critical |
+| **Failover Time** | High (15-30 seconds) or infinite (no automatic failover) | ⚠️ Critical |
+
+Clients encounter visible downtime when the single reverse-proxy replica collapses under load or becomes unavailable. The system demonstrates no resilience to single reverse-proxy instance failures.
+
+### Architectural Pattern: Active Redundancy (Hot Spare)
+
+Active Redundancy is an architectural pattern in which multiple instances of the same component operate in parallel and remain fully active at all times. None of the replicas are passive or waiting to be promoted. Instead, each instance continuously processes requests, maintains synchronized internal state, and stays prepared for immediate takeover in the event of a fault in any sibling replica.
+
+The pattern is designed to support fail-operational behavior rather than failover behavior. Because each replica is already hot and running, the system does not require activation or initialization time when a failure occurs. This drastically reduces Mean Time to Repair (MTTR) and ensures that service continuity is preserved even when a primary instance becomes unresponsive.
+
+**Note:** This pattern will be applied in the GCP Kubernetes cluster by creating multiple replicas of the reverse-proxy component.
+
+### Architectural Tactic: Redundant Spare (Recover from Faults → Preparation and Repair)
+
+The Redundant Spare tactic focuses on preparing additional instances of a component so that the system can rapidly recover from faults. While the Active Redundancy pattern defines how replicas operate concurrently, the Redundant Spare tactic defines how the system anticipates failures by ensuring that additional operational capacity is already in place. The tactic emphasizes preparation and repair: preparation in the form of duplicate active reverse-proxy nodes that share identical responsibilities, and repair in the form of fast rerouting of traffic once a failure is detected.
+
+By applying this tactic, recovery does not depend on restarting, scaling up, or reconfiguring services. The spare reverse-proxy instances are already active, synchronized, and ready to handle traffic. Therefore, when the primary reverse-proxy instance fails—whether due to overload, resource exhaustion, or simulated node termination—the spare replica immediately absorbs the remaining traffic. The tactic thus enables extremely low recovery time and stable performance during unexpected operational disruptions.
+
+**Note:** This tactic will be implemented in the GCP Kubernetes cluster by deploying multiple reverse-proxy replicas with proper load balancing and health checks.
+
+### Verification (Post-Implementation)
+
+After implementing the Active Redundancy pattern and Redundant Spare tactic in the GCP Kubernetes cluster, verification tests will be conducted to validate the improvements. The baseline metrics documented in the Response Measure section will be compared against the new metrics to demonstrate the effectiveness of the pattern.
+
+**Planned Test Scenarios (to be executed in GCP Kubernetes):**
+
+1. **Pod Crash Simulation**: Terminate one reverse-proxy replica pod and observe failover behavior
+2. **Resource Exhaustion Simulation**: Limit resources on one replica to test health check detection and traffic rerouting
+
+**Expected Improvement Metrics (to be validated post-implementation):**
+- **MTTR**: Target < 5 seconds (automatic failover via Kubernetes load balancer)
+- **Failover Time**: Target < 3 seconds (health check interval + routing update)
+
+The verification process will confirm that the Active Redundancy pattern and Redundant Spare tactic successfully eliminate the single point of failure in the reverse-proxy component and provide high availability for traffic routing to backend services.
 
 ### Replication pattern lb analytics
 

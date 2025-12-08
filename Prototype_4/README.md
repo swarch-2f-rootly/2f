@@ -254,7 +254,7 @@ The implementation of the **Cache-Aside** pattern has provided significant advan
 
 ## Replication pattern Reverse Proxy
 
-<img width="1331" height="735" alt="image" src="https://github.com/user-attachments/assets/7bf3b2ce-e9b8-4034-8357-8454cddd97a5" />
+![reverse scenario](images/reverseRP4.png)
 
 This scenario describes the baseline reliability assessment for the Reverse Proxy component. The objective is to document the current system behavior when the reverse-proxy fails, establishing metrics that will later be compared against the improved system after applying the Active Redundancy architectural pattern and the Redundant Spare tactic in GCP Kubernetes cluster.
 

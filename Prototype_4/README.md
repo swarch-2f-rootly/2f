@@ -290,6 +290,31 @@ The result is predictable interactions, easier evolution, and independent scalin
   - Balances workloads between **ms-data-processing** instances to handle peak data transformation demand.
   - **Relation:** Balances requests and ensures stable processing throughput.
 
+## Components description
+
+| **Component / Service** | **Responsibilities** | **Boundaries** | **Interfaces** |
+|---|---|---|---|
+| **WAF (Web Application Firewall)** | Identify malicious traffic, sanitizes requests, protects surface endpoints. | First boundary between clients and internal network. | Intercepts HTTP/S; forwards accepted traffic to Reverse Proxy. |
+| **Reverse Proxy** | SSL termination, routing, compression, request forwarding to load balancers and API gateway. | Sits between the WAF and fe-web and apigateway. | HTTP routing to fe-web, api-gateway. |
+| **Load Balancer** | Distributes incoming client and IoT requests and analytics requests to ensure availability and scalability. | Logical boundary between clients (IoT devices) and backend services. | Uses HTTP/REST and HTTP/Graphql protocols to route traffic to the API gateway or ingestion endpoints. |
+| **Frontend** | Provides the main user interface for real-time visualization of sensor data, dashboards, and management of plants and devices. | Executed as a SSR in the user’s browser; depends on the `api-gateway`. | Communicates with the `api-gateway` using REST/GraphQL and HTTP/REST . |
+| **api-gateway** | Central entry point for all client interactions. Routes, aggregates, and authenticates API requests to backend microservices. | Coordinates backend communication; does not contain domain logic. | REST/GraphQL and HTTP/REST |
+| **ms-authentication-and-roles** | Handles user authentication and authorization, managing JWT tokens, sessions, and role-based access control (RBAC). | Operates independently with its own database; does not directly interact with sensor or plant data. | HTTP/REST for authentication and role management. |
+| **ms-user-plant-management** | Manages user–plant–device relationships, device registration, and plant configurations. | Specialized in domain entities (plants, devices); consumes user info from the authentication service. |HTTP/REST CRUD operations on plants and devices. |
+| **be-analytics** | Processes and analyzes historical sensor data, providing performance metrics, trend analyses, and reports. | Has read-only access to processed data; operates without modifying primary datasets. | REST/GraphQL and HTTP/REST for analytics and reports. |
+| **be-data-ingestion** | Receives sensor data from IoT microcontrollers, validates input, and forwards it to the data processing pipeline. | Dedicated entry point for IoT device communication; ensures integrity and structure of incoming data. | HTTP endpoints for ingestion; interacts with Kafka for event publishing. |
+| **ms-data-processing** | Aggregates, transforms, and stores data from ingestion streams into the analytical databases. | Consumes messages from Kafka and persists structured data. | Kafka consumer KAFKA WIRE protocol; data source connector for service-to-service data delivery. |
+| **Microcontroller** | Collect environmental sensor data (e.g., temperature, humidity, soil metrics) and send it periodically to the backend. | Operate at the network edge; limited resources; communicate only with the ingestion endpoint. | HTTP requests or MQTT to the ingestion service. |
+| **queue-data-ingestion** | Kafka message broker enabling asynchronous communication between ingestion and processing services. | Shared middleware for decoupled data flow; ensures reliable message delivery. | Kafka topics and consumer APIs. |
+| **db-authentication-and-roles** | PostgreSQL database storing user credentials, roles, and session tokens. | Private data store for authentication service. | SQL queries via ORM;  data source connector |
+| **db-user-plant-management** | PostgreSQL database managing associations between users, plants, and devices. | Dedicated data store for plant and device domain logic. | SQL/ORM access; data source connector |
+| **db-data-processing** | InfluxDB database storing time-series agricultural data and computed metrics. | Optimized for analytical queries and visualization. | InfluxQL/Flux queries;  data source connector|
+| **db-caching** | Redis in-memory database for caching user sessions, authentication tokens, and frequently accessed queries. | Shared fast-access layer to reduce latency across backend services. | Redis key-value operations via SDK - data source connector. |
+| **stg-authentication-and-roles** | MinIO storage for user profile photos and access logs. | Attached to authentication service; persistent object storage. | S3-compatible API -  data source connector. |
+| **stg-data-processing** | MinIO storage for analytical data files, backups, and unstructured content. | Used by analytics and processing services. | S3-compatible API -  data source connector. |
+| **stg-user-plant-management** | MinIO storage for plant images and related documents. | Attached to user-plant management domain. | S3-compatible API -  data source connector. |
+---
+
 ## Layered Structure
   
 ### Layered view
@@ -442,8 +467,6 @@ Shows the hierarchical breakdown of the system into functional modules, clarifyi
 | Statistics Processing | Submodule | Builds trend analyses based on processed data. | Supplies the report generation submodule with analytical results. |
 | Report Generation | Submodule | Produces individual metric and comparative multi-metric reports for presentation or export. | Interfaces with the system's UI/dashboard layer to deliver finished reports. |
 
----
-
 ----  
 ## Quality Attributes
 ##  Security
@@ -579,23 +602,27 @@ Within the context of the load balancer, this tactic allows the system to scale 
 
 ####   Redesign prototype 4 Results
 
-![p4-lb-performance](images/.png)
+![p4-lb-performance](images/LbAnalyticsP4.png)
 
 ####  *Performance Metrics Comparison*
 
 | **Metric** | **After Load Balancer** | **Redesign P4** | **Observation / Technical Impact** |
 |-------------|---------------------------|---------------------------|------------------------------------|
-| **Average Response Time (ms)** | 285 ms |  ms |  |
-| **Response Time Variance (%)** | 11% | % |  |
-| **Throughput (req/sec)** | 260 req/s |  req/s | |
-| **Failed Requests (%)** | 0.3% | % ||
-| **CPU Utilization (per instance)** |~55–65% (per node, 2 replicas) |  | |
-| **Network Latency (avg)** | 43 ms |  ms | |
-| **Scalability Behavior** | Stable performance across replicas|  |  |
-| **System Availability** |Sustained at 99%+ |  |  |
+| **Average Response Time (ms)** | 285 ms | 6573 ms | Significant increase in latency due to additional layers (WAF, etc.) |
+| **Response Time Variance (%)** | 11% | 25.3 % | Higher variance under load |
+| **Throughput (req/sec)** | 260 req/s | 61 req/s | Throughput saturated earlier |
+| **Failed Requests (%)** | 0.3% | 0.33 % | Comparable error rate |
+| **Scalability Behavior** | Stable performance across replicas| Throughput saturated at ~61 req/s | Bottleneck likely in downstream services |
+| **System Availability** |Sustained at 99%+ | 99.67 % | High availability maintained |
 
 ####  Summary
-The **Load Balancer pattern** successfully mitigated the initial performance bottleneck by distributing incoming traffic evenly across multiple backend instances. 
+The **Load Balancer pattern** successfully mitigated the initial performance bottleneck by distributing incoming traffic evenly across multiple backend instances.
+
+**Justification for Performance Changes in Redesign P4 (GCP):**
+The observed decrease in throughput and increase in response time compared to the previous local deployment is attributed to the transition to a distributed cloud environment (GCP) and architectural enhancements:
+1.  **Network Latency:** Moving from local loopback communication to real network calls between GCP services adds inherent latency.
+2.  **Architectural Complexity:** The introduction of the WAF, API Gateway, and additional routing layers increases the number of hops per request.
+3.  **Resource Constraints:** Cloud instances have strict resource limits compared to the local test environment, leading to earlier saturation. 
 
 ###  Caching
 
@@ -660,6 +687,12 @@ The implementation of the **Cache-Aside** pattern has provided significant advan
 *   **Error Elimination:** The system achieved a **0.00% failed request rate**, a critical improvement over the 0.3% observed previously. This demonstrates that the cache acts as an effective buffer, preventing the database from becoming a point of failure under extreme load.
 *   **Stability vs. Speed:** While the recorded throughput (93.32 req/s) and response time (394.13 ms) show different behavior compared to the load balancing test, the system prioritized total availability (100%). The increase in response time variance (71.30%) is expected in cached systems: it reflects the difference between immediate responses (cache hits) and full database queries (cache misses).
 *   **Resource Efficiency:** By serving frequent data from Redis, pressure on the primary database is drastically reduced, allowing the system to handle traffic spikes without degrading service integrity or rejecting requests.
+
+**Justification for Performance Changes in Redesign P4 (GCP):**
+The performance metrics in P4 reflect the overhead of a real-world cloud deployment compared to the local baseline:
+1.  **Network Overhead:** Accessing the remote Redis cache in GCP involves network round-trips that are negligible in a local setup.
+2.  **Security Inspection:** The WAF inspects every request, adding processing time before the cache is even reached.
+3.  **Concurrency Handling:** The distributed nature of the system exposes race conditions and locking mechanisms that are less apparent in local tests, contributing to higher variance.
 
 ---
 

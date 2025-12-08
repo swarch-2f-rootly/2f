@@ -558,6 +558,10 @@ The implementation of the WAF pattern effectively mitigates application-layer Do
 
 These results confirm a substantial improvement in **availability**, **performance stability**, and **observability**: the system remains responsive under hostile traffic, legitimate clients experience stable response times, and WAF logs provide an auditable trail of triggered rules and detected attacks.
 
+<img width="781" height="579" alt="image" src="https://github.com/user-attachments/assets/a853bc43-9427-433c-8afc-e117b1e12d93" />
+<img width="836" height="503" alt="image" src="https://github.com/user-attachments/assets/53a438cf-705c-4155-b8ef-e435acd13d3c" />
+
+
 ---
 
 ##  Performance and Scalability

@@ -560,10 +560,6 @@ The implementation of the WAF pattern effectively mitigates application-layer Do
 
 These results confirm a substantial improvement in **availability**, **performance stability**, and **observability**: the system remains responsive under hostile traffic, legitimate clients experience stable response times, and WAF logs provide an auditable trail of triggered rules and detected attacks.
 
-
-**💡 Note on Architectural Pattern:** See the [WAF Pattern Documentation](https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/Web%20Application%20Firewall/README.md) for Nginx configuration, mitigation strategy, and validation results.
-
-
 ---
 
 ##  Performance and Scalability
@@ -800,7 +796,7 @@ The verification process will confirm that the Active Redundancy pattern and Red
 ---
 
 ### Cluster pattern
-![cluster scenario](images/.png)
+![cluster scenario](images/clusterP4.png)
 
 This scenario models the system operating entirely on a single machine, where all application services, the database, analytics engine, API layer, and background components share the same execution environment. During normal user activity, a machine-level fault suddenly occurs—such as an OS crash, hardware malfunction, or unexpected shutdown—causing every running component to fail simultaneously. Because the entire platform depends on a single node, the failure results in a complete service outage: all requests time out, processes terminate abruptl.
 

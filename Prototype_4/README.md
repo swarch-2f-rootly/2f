@@ -78,7 +78,7 @@ Finally, users can access all this information through an intuitive interface, a
   - Protocols: **HTTP/REST**
   - Relations: Consumes `lb-data-ingestion` via HTTP/REST
 
-- **WAF (with embedded Reverse Proxy)**
+- **WAF**
   - Type: Security Firewall / Edge Service
   - Responsibility: Protects web applications from common attacks while running.
   - Protocols: **HTTPS**
@@ -629,7 +629,7 @@ By maintaining these additional computed copies, the system can rapidly serve re
 
 ####   Redesign prototype 4 Results
 
-![p4-lb-performance](images/.png)
+![p4-lb-performance](images/graphql_analytics_comprehensive_performanceP4.png)
 
 ####  *Performance Metrics Comparison*
 

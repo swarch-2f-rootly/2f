@@ -56,7 +56,7 @@ Finally, users can access all this information through an intuitive interface, a
 ## Decomposition Structure
 ### Decomposition View
 
-![Decomposition-view](images/DecmpP3.png)
+![Decomposition-view](images/DecmpP4.png)
 
 
 ### Purpose

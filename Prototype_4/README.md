@@ -119,6 +119,56 @@ Shows the hierarchical breakdown of the system into functional modules, clarifyi
 ## Quality Attributes
 ##  Security
 
+
+## Web Application Firewall
+
+<img width="1334" height="748" alt="image" src="https://github.com/user-attachments/assets/5a0f1037-dce2-405f-bd06-a4914a42eea2" />
+
+### Scenario Snapshot
+In this scenario, the system faces a sustained **Layer-7 DoS attack** initiated by a single malicious client repeatedly sending legitimate-looking HTTP requests to its public API endpoints.  
+Initially, a plain NGINX reverse proxy acts as the only public entry point, forwarding all traffic to the API Gateway without deep inspection or rate limiting.  
+This design exposes the system to resource exhaustion, high latency, and loss of availability.  
+To mitigate this weakness, the **Web Application Firewall (WAF) pattern** is applied by adding a WAF as an additional edge component in front of the existing reverse proxy, introducing intelligent traffic inspection and rate control mechanisms that detect and block malicious requests while maintaining service performance for legitimate users.
+
+- **Weakness:** The system exposes a single public entry point through an NGINX reverse proxy that only forwards traffic to the API Gateway without deep inspection or centralized rate limiting.
+- **Threat:** A malicious external client or automated script capable of generating a sustained stream of HTTP(S) requests that simulated legitimate traffic.
+- **Attack:**  A **Layer-7 DoS** attack that repeatedly targets exposed endpoints (e.g., `/graphql`, `/auth/login`), using continuous or “low-and-slow” requests to exhaust gateway worker pools and degrade performance.
+- **Risk:** The API Gateway becomes overloaded, producing 502/503 responses and blocking legitimate users. System availability and user experience deteriorate severely.
+- **Vulnerability:** Absence of application-layer protection and global throttling. The reverse proxy lacks mechanisms to identify and block abusive request patterns.
+- **Countermeasure:** Integrate a **Web Application Firewall (WAF)** with the reverse proxy/API Gateway edge so that every request is inspected, filtered, and throttled before it reaches backend services.
+
+### Explanation of the Countermeasure
+
+The **Web Application Firewall (WAF) pattern** introduces a dedicated layer for **application-layer inspection and traffic control**.  
+It applies the *Detect Service Denial* and *Limit Resource Demand* architectural tactics to strengthen the system’s availability and resilience.
+
+By adding a WAF as an additional edge component in front of the existing reverse proxy (rootly-waf), the system gains the ability to:
+
+- **Analyze and classify** HTTP requests using the OWASP Core Rule Set (CRS).  
+- **Detect anomalies and block malicious traffic** before it reaches backend services.  
+- **Apply dynamic rate limiting** by IP, route, or payload size.  
+- **Maintain service availability** with minimal latency degradation during sustained request floods.
+- **Centralize telemetry** (blocked IPs, triggered rules, anomaly scores) for auditing and adaptive security tuning.
+
+This countermeasure mitigates the initial weakness by placing an **intelligent inspection and throttling layer** at the network edge, ensuring that the previously passive reverse proxy receives only validated and rate-controlled traffic, which prevents API Gateway overload under Layer-7 DoS conditions.
+
+### Summary
+
+### Verification 
+
+| Aspect | **Before WAF (Reverse Proxy Only)** | **After WAF (WAF Pattern Applied)** |
+|--------|-------------------------------------|--------------------------------------|
+| **Response** | Reverse proxy forwards all requests directly to the API Gateway, allowing a single malicious client to overload the service and cause unresponsiveness. | WAF inspects and throttles abusive traffic, forwarding only traffic classified as legitimate to the reverse proxy and then to the API Gateway. |
+| **Response Measure** | API Gateway latency > 5 s, 502/503 errors after ~30 s, availability < 60% under sustained Layer-7 attack. | **99.2%–99.8% of hostile traffic blocked** before reaching the reverse proxy and API Gateway; no HTTP 502/503 errors were observed during the post-mitigation attack runs, and allowed requests maintained **p75 latencies below 50 ms**, consistent with normal operation. |
+
+The implementation of the WAF pattern effectively mitigates application-layer DoS attacks by inspecting and blocking malicious request patterns before they reach the reverse proxy and API Gateway. Quantitative validation shows that the WAF filters **more than 99% of hostile traffic** during the attack scenario while keeping latency for legitimate requests low and avoiding gateway errors.
+
+These results confirm a substantial improvement in **availability**, **performance stability**, and **observability**: the system remains responsive under hostile traffic, legitimate clients experience stable response times, and WAF logs provide an auditable trail of triggered rules and detected attacks.
+
+
+**💡 Note on Architectural Pattern:** See the [WAF Pattern Documentation](https://github.com/swarch-2f-rootly/2f/blob/main/Prototype_3/Web%20Application%20Firewall/README.md) for Nginx configuration, mitigation strategy, and validation results.
+
+
 ---
 
 ##  Performance and Scalability

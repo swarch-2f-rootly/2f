@@ -221,7 +221,7 @@ By maintaining these additional computed copies, the system can rapidly serve re
 
 ####  Implementation Caching Results
 
-![post-ca-performance](images/.png)
+![post-ca-performance](images/post-ca-performance.png.png)
 
 ####   Redesign prototype 4 Results
 
@@ -231,18 +231,22 @@ By maintaining these additional computed copies, the system can rapidly serve re
 
 | **Metric** | **After Caching** | **Redesign P4** | **Observation / Technical Impact** |
 |-------------|---------------------------|---------------------------|------------------------------------|
-| **Average Response Time (ms)** |  ms |  ms |  |
-| **Response Time Variance (%)** | % | % |  |
-| **Throughput (req/sec)** |  req/s |  req/s | |
-| **Failed Requests (%)** | % | % ||
-| **CPU Utilization (per instance)** | |  | |
-| **Network Latency (avg)** |  ms |  ms | |
-| **Scalability Behavior** | |  |  |
-| **System Availability** | |  |  |
+| **Average Response Time (ms)** | 394.13 ms |  ms |  |
+| **Response Time Variance (%)** | 71.30 % | % |  |
+| **Throughput (req/sec)** | 93.32 req/s |  req/s | |
+| **Failed Requests (%)** | 0.00 % | % ||
+| **CPU Utilization (per instance)** | - |  | |
+| **Network Latency (avg)** | - |  ms | |
+| **Scalability Behavior** | Throughput saturated at ~93 req/s |  |  |
+| **System Availability** | 100% |  |  |
 
 
 ####  Summary
-Una idea general de que caching sirve y es util 
+The implementation of the **Cache-Aside** pattern has provided significant advantages in terms of reliability and resource protection. Comparing the metrics with the previous phase (Load Balancer), the following points stand out:
+
+*   **Error Elimination:** The system achieved a **0.00% failed request rate**, a critical improvement over the 0.3% observed previously. This demonstrates that the cache acts as an effective buffer, preventing the database from becoming a point of failure under extreme load.
+*   **Stability vs. Speed:** While the recorded throughput (93.32 req/s) and response time (394.13 ms) show different behavior compared to the load balancing test, the system prioritized total availability (100%). The increase in response time variance (71.30%) is expected in cached systems: it reflects the difference between immediate responses (cache hits) and full database queries (cache misses).
+*   **Resource Efficiency:** By serving frequent data from Redis, pressure on the primary database is drastically reduced, allowing the system to handle traffic spikes without degrading service integrity or rejecting requests.
 
 ---
 

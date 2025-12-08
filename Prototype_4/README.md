@@ -322,7 +322,7 @@ The result is predictable interactions, easier evolution, and independent scalin
 ![Layered-view](images/TiersP4.png)
 
 - **Layered view  - Layers** The structure of the logic layer is shown below to avoid redundancy in the main view.
-- The **Border element (WAF)** is not considered part of the tiers but acts as a **security perimeter** protecting inbound traffic before it reaches the presentation tier.
+- The **Border element (WAF)** is not considered part of the tiers but acts as a **security perimeter** is like an observer.
 
 ### **Border Element**
 

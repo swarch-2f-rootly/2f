@@ -870,11 +870,29 @@ Under normal operating conditions, both db-caching and db-data-processing are ac
 
 #### Response
 
-When the system does not implement Active Redundancy, the failure of either store leads to user-facing degradation. If db-caching fails, analytics requests may hang or return incomplete results. If db-data-processing fails, metrics that require fresh computation become unavailable. Error rates increase, and response times rise due to failed lookups or repeated retries.
+When the system does not implement Active Redundancy, the failure of either store leads to user-facing degradation. If db-caching fails, analytics requests may hang or return incomplete results. If db-data-processing fails, metrics that require fresh computation become unavailable. Error rates increase, and response times rise due to failed lookups or repeated retries. When one of the active data sources (db-caching or db-data-processing) crashes, the analytics backend detects the failure, reroutes all read operations to the surviving data store, and continues serving analytics responses without stopping the service. Some queries may experience increased latency due to the loss of parallel read paths, but the system maintains availability and avoids user-visible downtime.
 
 #### Response Measure
 
 The metrics for evaluating this scenario include availability, recovery time, error rates, and consistency under failure. In the baseline setup, a data-source outage results in elevated 5xx errors, stalled analytics requests, and loss of metric freshness. Service availability drops noticeably as the backend cannot compensate for the missing data source.
+
+# OJO Lo de abajo se debe revisar
+
+Response Measure
+
+Service Availability (%) remains above 99% during the failure window.
+
+Failover Time: ≤ 1–2 seconds for the backend to reroute requests.
+
+Error Rate (%): Temporary increase ≤ 5% during detection, then returns to near 0%.
+
+Average Response Time: increases compared to normal baseline but remains within acceptable service limits.
+
+Data Freshness: degraded when db-data-processing fails; partial metric coverage when db-caching fails.
+
+Consistency Guarantees: system continues serving valid analytics responses from the surviving store.
+
+
 
 #### Architectural Pattern: Active Redundancy (Hot Spare)
 

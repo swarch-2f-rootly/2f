@@ -250,15 +250,15 @@ The implementation of the **Cache-Aside** pattern has provided significant advan
 
 ---
 
-# Reliability
+## Reliability
 
-## Replication pattern Reverse Proxy
+### Replication pattern Reverse Proxy
 
 ![reverse scenario](images/reverseRP4.png)
 
 This scenario describes the baseline reliability assessment for the Reverse Proxy component. The objective is to document the current system behavior when the reverse-proxy fails, establishing metrics that will later be compared against the improved system after applying the Active Redundancy architectural pattern and the Redundant Spare tactic in GCP Kubernetes cluster.
 
-### Artifact
+#### Artifact
 
 The artifact under evaluation is the `reverse-proxy` component in its current baseline configuration. The `reverse-proxy` service operates in the private network and is responsible for routing validated traffic to the frontend SSR (Next.js) and API Gateway services. The `rootly-waf` service acts as an observer and entry point, responsible for terminating TLS/SSL connections, applying ModSecurity (OWASP CRS) rules for application-layer protection, enforcing rate limiting policies, and generally verifying traffic that goes directly to the single reverse-proxy instance.
 
@@ -272,7 +272,7 @@ In the current baseline configuration, the reverse-proxy operates as a single in
 
 The reverse-proxy represents a Single Point of Failure (SPOF). The reverse-proxy is critical for routing traffic to backend services. If the reverse-proxy fails, traffic cannot reach the frontend and API Gateway, even if the WAF remains operational.
 
-### Source
+#### Source
 
 The source of the stimulus is external clients making HTTPS requests to the platform. These clients may include:
 - End users accessing the web frontend through browsers
@@ -280,7 +280,7 @@ The source of the stimulus is external clients making HTTPS requests to the plat
 
 All external traffic enters the system through ports 80 (HTTP) and 443 (HTTPS), which are handled by the `rootly-waf` instance. The source generates continuous request streams that may vary from normal operational load to peak traffic conditions affecting availability.
 
-### Stimulus
+#### Stimulus
 
 The stimulus consists of inducing the failure of one active reverse-proxy instance. This may be triggered in several possible ways, however we will employ:
 
@@ -288,7 +288,7 @@ The stimulus consists of inducing the failure of one active reverse-proxy instan
 
 Regardless of the method, the stimulus results in the single reverse-proxy instance transitioning into an unavailable state.
 
-### Environment
+#### Environment
 
 In the baseline configuration, only one `reverse-proxy` instance is available. The system has no alternative reverse-proxy backends, and therefore, all incoming traffic flows through the WAF instance to the single reverse-proxy instance. When the reverse-proxy instance becomes saturated or fails, clients experience slow responses, request timeouts, or complete unavailability. The system has no backup capacity to absorb the load.
 
@@ -300,7 +300,7 @@ The environment conditions include:
 - Valid SSL certificates present
 - No redundant reverse-proxy instances available for failover
 
-### Response
+#### Response
 
 When the system operates without Active Redundancy, any failure or overload of the reverse-proxy instance directly results in degraded service:
 
@@ -313,14 +313,14 @@ When the system operates without Active Redundancy, any failure or overload of t
 
 At the client level, increased latency, elevated error rates, and unavailability are visible. Requests may accumulate, exceed processing limits, or return 5xx errors. User sessions are lost, and the user experience is severely degraded or completely unavailable.
 
-### Response Measure
+#### Response Measure
 
 The metrics used to validate the scenario focus on mean time to repair and failover time during and after the induced failure. In the baseline configuration, the platform experiences significant performance degradation:
 
-| Metric | Baseline Value (Without Redundancy) | Impact |
-|--------|--------------------------------------|--------|
-| **MTTR (Mean Time To Repair)** | High (30-60 seconds minimum) | ⚠️ Critical |
-| **Failover Time** | High (15-30 seconds) or infinite (no automatic failover) | ⚠️ Critical |
+| Metric | Baseline Value (Without Redundancy) | 
+|--------|--------------------------------------|
+| **MTTR (Mean Time To Repair)** | High (30-60 seconds minimum) |
+| **Failover Time** | High (15-30 seconds) or infinite (no automatic failover) |
 
 Clients encounter visible downtime when the single reverse-proxy replica collapses under load or becomes unavailable. The system demonstrates no resilience to single reverse-proxy instance failures.
 
@@ -354,52 +354,6 @@ After implementing the Active Redundancy pattern and Redundant Spare tactic in t
 - **Failover Time**: Target < 3 seconds (health check interval + routing update)
 
 The verification process will confirm that the Active Redundancy pattern and Redundant Spare tactic successfully eliminate the single point of failure in the reverse-proxy component and provide high availability for traffic routing to backend services.
-
-### Replication pattern lb analytics
-
-![cluster scenario](images/clusterP4.png)
-
-This scenario describes the reliability validation for the lb-analytics component by applying the Active Redundancy architectural pattern and the Redundant Spare tactic. The objective is to demonstrate that the platform maintains availability even when one replica becomes overloaded or unavailable, and that the second replica—operating as a hot spare—can immediately sustain analytics traffic without noticeable service degradation.
-
-#### Artifact
-
-The artifact under evaluation is the lb-analytics subsystem and its surrounding load-balancing configuration. The lb-analytics service is responsible for processing telemetric and operational analytics, supporting downstream decision-making processes, and serving REST or GraphQL endpoints that expose analytics results to internal clients. 
-
-#### Source
-
-The source of the stimulus is a controlled load-generation client capable of producing high volumes of concurrent requests. This client may represent legitimate operational usage at peak conditions or a synthetic stress workload.
-
-#### Stimulus
-
-The stimulus consists of inducing the failure of one active lb-analytics instance. This may be triggered in two possible ways. The first is a high-intensity workload that saturates CPU or memory resources, causing the instance to degrade, become unresponsive, or crash. The second approach is a deliberate operational interruption, such as killing the service, introducing a network partition, or stopping the container or virtual machine. Regardless of the method, the stimulus results in replica A transitioning into an unavailable state while traffic continues to be routed to the load balancer.
-
-#### Environment
-
-In the baseline configuration, only one lb-analytics instance is available. The load balancer has no alternative backend, and therefore, all analytics traffic flows to the single replica. When this instance becomes saturated or fails, clients experience slow responses, request timeouts, or complete unavailability. The system has no backup capacity to absorb the load.
-
-#### Response
-
-When the system operates without Active Redundancy, any failure or overload of the lb-analytics instance directly results in degraded service. Increased latency, elevated error rates, and unavailability are visible at the client level. Analytics requests may accumulate in queues, exceed processing limits, or return 5xx errors.
-
-#### Response Measure
-
-The metrics used to validate the scenario focus on latency, throughput, failover time, and stability during and after the induced failure.In the baseline configuration, the platform experiences significant performance degradation. Latency increases dramatically, backend error rates rise, and clients encounter visible downtime. Throughput drops as the single replica collapses under load or becomes unavailable.
-
-#### Architectural Pattern: Active Redundancy (Hot Spare)
-
-Active Redundancy is an architectural pattern in which multiple instances of the same component operate in parallel and remain fully active at all times. None of the replicas are passive or waiting to be promoted. Instead, each instance continuously processes requests, maintains synchronized internal state, and stays prepared for immediate takeover in the event of a fault in any sibling replica.
-
-The pattern is designed to support fail-operational behavior rather than failover behavior. Because each replica is already hot and running, the system does not require activation or initialization time when a failure occurs. This drastically reduces Mean Time to Repair (MTTR) and ensures that service continuity is preserved even when a primary instance becomes unresponsive. In the context of lb-analytics, this pattern enables multiple analytics processors to receive and handle requests concurrently while being balanced by the load balancer. Should one instance fail under extreme load or abrupt termination, the remaining active instance continues serving the analytics workload with no interruption.
-
-#### Architectural Tactic: Redundant Spare
-
-The Redundant Spare tactic focuses on preparing additional instances of a component so that the system can rapidly recover from faults. While the Active Redundancy pattern defines how replicas operate concurrently, the Redundant Spare tactic defines how the system anticipates failures by ensuring that additional operational capacity is already in place. The tactic emphasizes preparation and repair: preparation in the form of duplicate active lb-analytics nodes that share identical responsibilities, and repair in the form of fast rerouting of traffic once a failure is detected.
-
-By applying this tactic, recovery does not depend on restarting, scaling up, or reconfiguring services. The spare instance is already active, synchronized, and integrated behind the load balancer. Therefore, when the primary instance fails—whether due to overload, resource exhaustion, or simulated node termination—the spare replica immediately absorbs the remaining traffic. The tactic thus enables extremely low recovery time and stable performance during unexpected operational disruptions.
-
-#### Verification 
-
-The system is designed to support high request volumes with strict latency constraints. As part of the reliability assessment, two active replicas (A and B) operate simultaneously. During the verification test, replica A is intentionally stressed or terminated to observe whether replica B continues serving traffic with minimal disruption.
 
 ---
 

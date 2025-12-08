@@ -56,8 +56,6 @@ Finally, users can access all this information through an intuitive interface, a
 ### Components and Connector view
 ![component-and-connector-view](images/CyCP4.png)
 
----
-
 ### External Components (Out of System Scope)
 
 - **Web Browser**
@@ -71,8 +69,6 @@ Finally, users can access all this information through an intuitive interface, a
   - Responsibility: Collects and sends sensor and plant data
   - Protocols: **HTTP/REST**
   - Relations: Consumes `lb-data-ingestion` via HTTP/REST
-
----
 
 ### Internal Components 
 
@@ -206,8 +202,6 @@ Finally, users can access all this information through an intuitive interface, a
   - `stg-user-plant-management`: Master data and plant configurations. Consumed by `ms-user-plant-management`.
   - `stg-data-processing`: Temporary or raw storage for device data. Consumed by `ms-data-processing`.
 
----
-
 ### Architectural Styles
 1. **Client–Server**  
    The browser (client) requests resources from the frontend (server) via HTTP. This ensures separation between presentation and business logic.  
@@ -251,15 +245,12 @@ The result is predictable interactions, easier evolution, and independent scalin
   - Hides the internal network topology.
   - **Relation:** Forwards requests to **lb-frontend** and **api-gateway**, depending on routing rules.
 
----
 
 #### **Frontend Services**
 
 - **Frontend Web (fe-web)**
   - User interface built with React + TypeScript; displays dashboards, device states, and analytics.
   - **Relation:** Consumes services via the **WAF → API Gateway** path.
-
----
 
 #### **Gateway & Core Logic Services**
 
@@ -298,7 +289,6 @@ The result is predictable interactions, easier evolution, and independent scalin
 - **Load Balancer - Data Processing (lb-data-processing)**
   - Balances workloads between **ms-data-processing** instances to handle peak data transformation demand.
   - **Relation:** Balances requests and ensures stable processing throughput.
----
 
 ## Components description
 
@@ -324,6 +314,97 @@ The result is predictable interactions, easier evolution, and independent scalin
 | **stg-data-processing** | MinIO storage for analytical data files, backups, and unstructured content. | Used by analytics and processing services. | S3-compatible API -  data source connector. |
 | **stg-user-plant-management** | MinIO storage for plant images and related documents. | Attached to user-plant management domain. | S3-compatible API -  data source connector. |
 ---
+
+## Layered Structure
+  
+### Layered view
+
+![Layered-view](images/TiersP4.png)
+
+- **Layered view  - Layers** The structure of the logic layer is shown below to avoid redundancy in the main view.
+- The **Border element (WAF)** is not considered part of the tiers but acts as a **security perimeter** protecting inbound traffic before it reaches the presentation tier.
+
+### **Border Element**
+
+- **Component:** Web Application Firewall (WAF)
+- **Responsibility:** It protects the system's entry point by filtering and inspecting incoming HTTP traffic.
+- **Capabilities:**  IP reputation filtering, rate limiting, DoS mitigation.
+- **Communication flow:** Directs validated requests exclusively to Tier 1 (Forward).
+- **Communication style:** HTTP/HTTPS
+
+### **Layer Specifications**
+
+#### **Tier 1 – Forward Layer**
+- **Responsibility:** managing request routing (traffic control) and hiding the internal architecture to improve security.
+- **Components:** `reverse proxy`
+- **Communication style:** Synchronous HTTP/REST
+- **Constraint:** Cannot access deeper tiers directly.
+
+#### **Tier 2 – Presentation Layer**
+- **Responsibility:** Provides user interfaces and manages client-side logic.
+- **Components:** `fe-web`, `fe-mobile`
+- **Communication style:** Synchronous HTTP/REST
+- **Constraint:** Cannot access deeper tiers directly.
+
+
+#### **Tier 3 – Synchronous Communication Layer**
+- **Responsibility:** Manages synchronous request routing and API orchestration.
+- **Components:** `api-gateway`
+- **Capabilities:** Request aggregation, throttling, authentication, and routing.
+- **Communication style:** Synchronous HTTP/gRPC
+
+
+#### **Tier 4 – Logic Layer**
+- **Responsibility:** Implements the system’s business logic and processing workflows.
+- **Components:**
+  - `be-authentication-and-roles`
+  - `be-user-plant-management`
+  - `be-analytics`
+- **Capabilities:** Core computation, orchestration, and validation.
+- **Communication style:** HTTP and message-based (Kafka, queues).
+
+#### **Tier 5 – Distribution Layer**
+- **Responsibility:** Balances and distributes requests between backend services to optimize performance and redundancy.
+- **Components:** `lb-analytics`, `lb-data-ingestion`
+- **Capabilities:** Load balancing, health checks, and failover.
+
+#### **Tier 6 – Asynchronous Communication Layer**
+- **Responsibility:** Handles event-driven communication and background processing.
+  - `be-data-ingestion` (producer)
+  - `be-data-processing` (consumer)
+- **Components:**
+ - `queue-data-ingestion`
+- **Capabilities:** Asynchronous data ingestion, queue management, and event propagation.
+- **Communication style:** Kafka/Event Streaming
+
+#### **Tier 7 – Data Layer**
+- **Responsibility:** Manages data persistence and storage across all domains.
+- **Datastores:**
+  - `db-authentication-and-roles`, `stg-authentication-and-roles`
+  - `db-user-plant-management`, `stg-user-plant-management`
+  - `db-data-processing`, `stg-data-processing`
+  - `db-caching`
+- **Capabilities:** Data durability, query optimization, and caching for improved performance.
+
+**Logic Layer Structure (Internal)**
+The diagram below illustrates the internal architecture of each microservice within the Logic Layer. To maintain a clear separation of concerns and promote modularity, each service adopts a 4-layer architecture.
+
+![Layer-logic-view](images/LayersLogicP3.png)
+
+1. **Layered Architecture**
+   Each microservice is internally structured into four distinct layers. This pattern ensures that responsibilities are clearly segregated, making the service easier to develop, test, and maintain. The dependencies flow in one direction, from the outer layers to the inner layers.
+    -   **Layer 1: Adapters:** This outermost layer is responsible for protocol-specific communication. It adapts incoming requests (e.g., from Kafka consumers or other services) and translates them into a format that the application's core can understand.
+    -   **Layer 2: Controllers:** This layer acts as the entry point for API requests (e.g., HTTP REST/GraphQL). It handles request validation, parsing, and calls the appropriate business logic in the Services layer.
+    -   **Layer 3: Services:** This is the core of the microservice, containing the main business logic and orchestrating application operations. It is completely independent of the delivery mechanism (e.g., HTTP).
+    -   **Layer 4: Models:** This innermost layer represents the application's data structures and domain entities. It is responsible for data access and persistence logic, interacting directly with the database.
+
+### Architectural patterns
+
+- **7-Tier Architecture Pattern:**  
+  The system is logically divided into seven layers, each serving a distinct function — from presentation and routing to computation, distribution, asynchronous messaging, and data management.
+  
+- **Security Perimeter (Border):**  
+  The WAF acts as the first line of defense, inspecting and controlling traffic before it reaches the first tier.
 
 
 ## Decomposition Structure

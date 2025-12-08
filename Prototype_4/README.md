@@ -558,8 +558,49 @@ The implementation of the WAF pattern effectively mitigates application-layer Do
 
 These results confirm a substantial improvement in **availability**, **performance stability**, and **observability**: the system remains responsive under hostile traffic, legitimate clients experience stable response times, and WAF logs provide an auditable trail of triggered rules and detected attacks.
 
+#### Ongoing Verification in Prototype 4
+
+To ensure the WAF deployed in the cloud continues to function correctly and maintains its protective capabilities, regular load testing is performed against the deployment in cloud. The following visualizations demonstrate that the WAF pattern continues to detect and block attack patterns effectively:
+
+**Traffic Classification Analysis (Pie Chart)**
+
 <img width="500" height="371" alt="image" src="https://github.com/user-attachments/assets/a853bc43-9427-433c-8afc-e117b1e12d93" />
+
+This pie chart provides a comprehensive view of request classification across multiple test runs. It shows the aggregate distribution of requests that successfully passed through the WAF (2xx/3xx responses) versus those that were blocked by the WAF's security mechanisms (4xx/5xx responses). 
+
+The visualization demonstrates that:
+- **The WAF consistently identifies and blocks malicious or anomalous traffic patterns** across all test scenarios
+- **The blocking rate remains stable** (approximately 84% of requests blocked during simulated attacks), indicating that the WAF's detection rules and rate limiting mechanisms are functioning as designed
+- **Legitimate traffic patterns are preserved**, with a consistent percentage of requests successfully passing through the WAF filters
+
+This aggregate view confirms that the WAF maintains its protective posture over time and continues to apply the *Detect Service Denial* and *Limit Resource Demand* tactics effectively.
+
+**Blocking Rate Consistency (Line Chart)**
+
 <img width="600" height="361" alt="image" src="https://github.com/user-attachments/assets/53a438cf-705c-4155-b8ef-e435acd13d3c" />
+
+This line chart tracks the percentage of blocked requests across sequential test runs (labeled as "Prueba 1" through "Prueba 10"). It provides temporal verification that:
+
+- **The WAF's blocking behavior is consistent and predictable** across multiple attack simulations
+- **No degradation in detection capabilities** is observed over time, confirming that the WAF rules remain active and effective
+- **The system maintains stable protection levels** regardless of when the tests are executed
+
+The consistent blocking percentage across all test runs validates that:
+1. The WAF's ModSecurity rules (OWASP CRS) are properly configured and active
+2. Rate limiting mechanisms are functioning correctly
+3. The anomaly detection system continues to identify and block suspicious traffic patterns
+4. The WAF maintains its protective capabilities without requiring manual intervention or rule updates
+
+**Verification Conclusion**
+
+These visualizations serve as **quantitative evidence** that the WAF pattern continues to function as designed in the production environment. The consistent blocking rates and stable traffic classification demonstrate that:
+
+- The WAF successfully **detects attack patterns** using its rule-based and anomaly-based detection mechanisms
+- The WAF **blocks malicious traffic** before it reaches backend services, maintaining the system's availability
+- The WAF **preserves legitimate traffic** while filtering out hostile requests
+- The countermeasure remains **effective over time** without degradation in performance or detection accuracy
+
+This ongoing verification process ensures that the WAF continues to provide the intended security benefits and maintains the system's resilience against Layer-7 DoS attacks and other application-layer threats.
 
 
 ---

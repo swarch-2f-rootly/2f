@@ -221,7 +221,7 @@ By maintaining these additional computed copies, the system can rapidly serve re
 
 ####  Implementation Caching Results
 
-![post-ca-performance](images/post-ca-performance.png.png)
+![post-ca-performance](images/post-ca-performance.png)
 
 ####   Redesign prototype 4 Results
 

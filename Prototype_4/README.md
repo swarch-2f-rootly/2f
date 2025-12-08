@@ -75,10 +75,6 @@ During peak usage, approximately **4,000 HTTP requests were sent within 1 or 2 s
 | **Response** | System processes all requests, logging latency and HTTP status outcomes |
 | **Response Measure** | Primary metrics: Response time variance (%) and failed request rate per test period |
 
-####  Baseline Load Test (Before Load Balancer)
-
-![post-lb-performance](images/con_lbGraphql_analytics_performance_avg_3iter.png)
-
 ####  Countermeasure Implementation: Load Balancer Pattern
 
 **Load Balancer** was introduced in front of the analytics backend cluster to enable **request distribution** across multiple instances.  
@@ -88,27 +84,29 @@ The configuration applied included:
 - Disabled session persistence to prevent node saturation  
 - Continuous metric collection via Prometheus and Grafana
 
-####   Implementation Load Balancer Results**
+####  Implementation Load Balancer Results
 
-![post-lb-performance](images/.png)
+![post-lb-performance](images/con_lbGraphql_analytics_performance.png)
 
-####  Performance Metrics Comparison
+####   Redesign prototype 4 Results
 
-| **Metric** | **Before Load Balancer** | **After Load Balancer** | **Observation / Technical Impact** |
+![p4-lb-performance](images/.png)
+
+####  *Performance Metrics Comparison*
+
+| **Metric** | **After Load Balancer** | **Redesign P4** | **Observation / Technical Impact** |
 |-------------|---------------------------|---------------------------|------------------------------------|
-| **Average Response Time (ms)** | 620 ms | 285 ms | ↓ Response time reduced by ~54%, indicating improved distribution and reduced queueing latency. |
-| **Response Time Variance (%)** | 42% | 11% | ↓ Variance significantly stabilized, meaning more predictable latency under load. |
-| **Throughput (req/sec)** | 133 req/s | 260 req/s | ↑ System throughput nearly doubled due to concurrent backend processing. |
-| **Failed Requests (%)** | 6.5% | 0.3% | ↓ Error rate almost eliminated after introducing traffic balancing. |
-| **CPU Utilization (per instance)** | ~95–100% (single node) | ~55–65% (per node, 2 replicas) | ↓ Load evenly distributed across replicas, avoiding CPU saturation. |
-| **Network Latency (avg)** | 78 ms | 43 ms | ↓ Reduced network wait times between client and backend. |
-| **Scalability Behavior** | Linear degradation under stress | Stable performance across replicas | ↑ Horizontal scalability achieved via load distribution. |
-| **System Availability** | Degraded under concurrent load | Sustained at 99%+ | ↑ Improved reliability and uptime under concurrent access. |
+| **Average Response Time (ms)** | 285 ms |  ms |  |
+| **Response Time Variance (%)** | 11% | % |  |
+| **Throughput (req/sec)** | 260 req/s |  req/s | |
+| **Failed Requests (%)** | 0.3% | % ||
+| **CPU Utilization (per instance)** |~55–65% (per node, 2 replicas) |  | |
+| **Network Latency (avg)** | 43 ms |  ms | |
+| **Scalability Behavior** | Stable performance across replicas|  |  |
+| **System Availability** |Sustained at 99%+ |  |  |
 
 ####  Summary
-
-The **Load Balancer pattern** successfully mitigated the initial performance bottleneck by distributing incoming traffic evenly across multiple backend instances.  
-Post-deployment metrics confirm measurable improvements in **response time**, **throughput**, and **scalability tolerance**, fulfilling the **Performance and Scalability** quality objectives for the Analytics Backend.
+The **Load Balancer pattern** successfully mitigated the initial performance bottleneck by distributing incoming traffic evenly across multiple backend instances. 
 
 ###  Caching
 
@@ -125,21 +123,6 @@ Post-deployment metrics confirm measurable improvements in **response time**, **
 | **Response** | Processes each request (each triggering a full database query), records latency and query statistics in monitoring logs |
 | **Response Measure** | Average request latency (ms) |
 
----
-
-###  Baseline Load Test (Before Caching Implementation)
-
-![post-lb-performance](images/con_lbGraphql_analytics_performance_avg_3iter.png)
-
-| **Metric** | **Best (1 user)** | **Knee (3401 users)** | **Max Load (4000 users)** |
-|-------------|------------------|-----------------------|----------------------------|
-| **Avg Response Time (ms)** | 235.67 | 3520.17 | 3520.19 |
-| **P95 (ms)** | — | 5272.00 | — |
-| **P99 (ms)** | — | 7829.25 | — |
-| **Error Rate (%)** | 0.00 | 0.00 | 0.00 |
-| **Throughput (req/s)** | 5.86 | 113.96 | 118.30 |
-
----
 ###  Countermeasure Implementation: Caching Pattern
 
 The **Cache-Aside pattern** was implemented within the analytics backend to store frequently accessed query results in memory.  
@@ -150,6 +133,30 @@ The main configuration included:
 - Cache invalidation rules for data updates.  
 - Integration with backend metrics for cache hit/miss analysis.
 
+####  Implementation Caching Results
+
+![post-ca-performance](images/.png)
+
+####   Redesign prototype 4 Results
+
+![p4-lb-performance](images/.png)
+
+####  *Performance Metrics Comparison*
+
+| **Metric** | **After Caching** | **Redesign P4** | **Observation / Technical Impact** |
+|-------------|---------------------------|---------------------------|------------------------------------|
+| **Average Response Time (ms)** |  ms |  ms |  |
+| **Response Time Variance (%)** | % | % |  |
+| **Throughput (req/sec)** |  req/s |  req/s | |
+| **Failed Requests (%)** | % | % ||
+| **CPU Utilization (per instance)** | |  | |
+| **Network Latency (avg)** |  ms |  ms | |
+| **Scalability Behavior** | |  |  |
+| **System Availability** | |  |  |
+
+
+####  Summary
+Una idea general de que caching sirve y es util 
 
 ---
 
@@ -238,7 +245,6 @@ This tactic ensures high availability by maintaining one additional unit of capa
 - This prevents single points of failure and allows the service to continue functioning even during unexpected outages.
 
 In GKE, the N+1 tactic is naturally supported through ReplicaSets, which automatically recreate failed pods to maintain the desired number of running instances. Additionally, features like node auto-repair and node auto-provisioning ensure that if a node becomes unhealthy, the platform replaces or heals it, preserving the extra capacity needed to sustain the N+1 redundancy model.
-
 
 #### Verification 
 

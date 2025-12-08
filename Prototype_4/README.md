@@ -50,10 +50,72 @@
 The system operates by capturing environmental and soil data—such as humidity and temperature—directly from the field using microcontroller devices. This information is then sent to a central platform where it is processed, validated, and analyzed. The platform's architecture combines robust databases for storing both transactional information (like user profiles and configurations) and large volumes of time-series sensor data.
 
 Finally, users can access all this information through an intuitive interface, available on both web and mobile. They can view real-time metrics, explore historical data, manage their crops, and receive analytical insights to optimize their agricultural practices.
-  
+
 ---
 
-  
+## Decomposition Structure
+### Decomposition View
+
+![Decomposition-view](images/DecmpP3.png)
+
+
+### Purpose
+Shows the hierarchical breakdown of the system into functional modules, clarifying responsibilities from high-level features down to services.
+
+### Decomposition Hierarchy
+1. **Authentication and User Management**
+   - User management: Create account, update account, delete account
+   - User authentication: Sign in, sign out, change password
+2. **Plant and Device Administration**
+   - Plant management:
+     - Create plant, delete plant, update plant
+     - Add plant photo, remove plant photo
+     - List all plants, list plant by ID
+     - List devices per plant
+     - Enable monitoring, disable monitoring
+     - Associate device, disassociate device
+   - Device management:
+     - Create device, update device, delete device
+     - List all devices, list device by ID
+     - List devices belonging to a user
+     - Update device for a user, delete device for a user
+     - Enable device, disable device
+3. **Data Ingestion**
+   - Sensor data reception
+   - Publication to Kafka
+4. **Data Processing**
+   - Kafka consumption
+   - Data storage
+5. **Data Analytics**
+   - Data processing:
+     - Query historical data
+     - Query averaged historical data
+   - Visualization processing:
+     - Perform trend analysis
+   - Report generation:
+     - Generate single-metric report
+     - Generate multi-metric report
+
+### Description of architectural elements and relations
+
+| Element | Type | Description | Relations |
+| --- | --- | --- | --- |
+| Authentication and User Management | Module | Manages the entire user lifecycle, including account creation, authentication, credential maintenance, sign-in, sign-out, and password changes. | Interacts with every other module to validate user identity and authentication before operations proceed. |
+| User Management | Submodule | Handles the creation, update, and deletion of user accounts within the system. | Triggered by administrators or user self-service registration flows. |
+| User Authentication | Submodule | Manages sign-in, sign-out, and password change workflows. | Depends on the authentication layer to validate credentials and issue access tokens. |
+| Plant and Device Administration | Module | Governs plant and device resources, covering configuration, monitoring, and associations between assets. | Coordinates with data ingestion and processing modules to obtain telemetry from registered devices. |
+| Plant Management | Submodule | Oversees plant lifecycle operations, photo attachments, monitoring status, and device associations. | Relies on the authentication module to verify the user responsible for each plant. |
+| Device Management | Submodule | Administers device lifecycle tasks and relationships with users and plants. | Communicates with the ingestion module to receive data captured by devices. |
+| Data Ingestion | Module | Receives real-time sensor and device data, publishing it to the messaging system (Kafka) for downstream processing. | Provides ingested data streams to the data processing module. |
+| Data Processing | Module | Consumes Kafka topics, performs transformations, cleansing, and aggregations, and persists processed outputs. | Supplies clean datasets to the analytics module for further insights. |
+| Data Analytics | Module | Analyzes and visualizes processed data to generate insights, reports, and trend identifications. | Depends on the data processing module to access consolidated information. |
+| Data Processing (Analytics Submodule) | Submodule | Executes statistical calculations, aggregations, and historical or averaged queries. | Feeds computed datasets to the visualization submodule. |
+| Statistics Processing | Submodule | Builds trend analyses based on processed data. | Supplies the report generation submodule with analytical results. |
+| Report Generation | Submodule | Produces individual metric and comparative multi-metric reports for presentation or export. | Interfaces with the system's UI/dashboard layer to deliver finished reports. |
+
+---
+
+----  
 ## Quality Attributes
 ##  Security
 
@@ -83,6 +145,17 @@ The configuration applied included:
 - Health checks and failover logic  
 - Disabled session persistence to prevent node saturation  
 - Continuous metric collection via Prometheus and Grafana
+
+#### Architectural Pattern: Load Balancer
+
+The **Load Balancer pattern** enables the system to distribute incoming client requests across multiple backend instances to avoid overload, reduce latency, and improve performance under concurrent usage. Instead of directing all requests to a single analytics processor—as in the baseline configuration—the load balancer acts as an intelligent traffic director that continuously evaluates server health, routing capacity, and response times. This ensures a more uniform distribution of workload and prevents any single instance from becoming a bottleneck. By operating as an intermediary layer, the load balancer also improves fault isolation: when one backend instance becomes slow or unresponsive, the load balancer stops forwarding traffic to it and seamlessly redirects requests to healthy nodes.
+
+#### Architectural Tactic: Maintain Multiple Copies of Computations (Manage Resources)
+
+The **Maintain Multiple Copies of Computations** tactic enhances performance by replicating computation logic across several backend instances. Rather than relying on a single server to evaluate all GraphQL analytics queries, the system keeps multiple identical processors active at the same time. Each replica computes the same type of analytics workload, enabling the platform to absorb high request volumes by parallelizing the execution of identical computations. This ensures that heavy analytical operations do not saturate a single node and that response times remain stable even under sudden spikes in demand.
+
+Within the context of the load balancer, this tactic allows the system to scale out efficiently, because each new backend instance contributes additional computational capacity. The combination of the tactic and the load balancer pattern results in improved throughput, reduced latency variance, and more predictable performance during stress conditions.
+
 
 ####  Implementation Load Balancer Results
 
@@ -132,6 +205,19 @@ The main configuration included:
 - TTL (Time-To-Live) policy to ensure freshness of cached data.  
 - Cache invalidation rules for data updates.  
 - Integration with backend metrics for cache hit/miss analysis.
+
+#### Architectural Pattern: Caching – Aside
+
+The **Cache-Aside pattern** improves performance by storing frequently-used or expensive-to-compute data in a fast-access memory layer. Instead of querying the primary database every time clients request analytics data, the backend first checks whether the result is already stored in the cache. If it is (cache hit), the data is returned immediately, significantly reducing latency. If the data is not present (cache miss), it is fetched from the database, returned to the client, and then written to the cache so future requests can be served faster. This pattern reduces load on the database and accelerates repeated access to popular analytics endpoints.
+
+Cache-Aside is particularly effective in read-heavy analytics scenarios where users repeatedly request the same metrics or dashboards. By ensuring that expensive computations or database operations are performed once and reused many times, the pattern stabilizes performance during bursts of traffic. Additionally, the use of TTL and invalidation rules ensures that cached values remain fresh while still providing substantial performance gains.
+
+#### Architectural Tactic: Maintain Multiple Copies of Computations (Manage Resources)
+
+In the context of caching, this tactic refers to storing precomputed or repeatedly-used results in multiple locations—the primary database and the cache. Instead of recalculating analytics for each request or executing identical database queries thousands of times, the system maintains an additional copy of the result in Redis. This secondary copy acts as a computational shortcut that avoids redundant work and reduces overall system strain.
+
+By maintaining these additional computed copies, the system can rapidly serve repetitive workloads and absorb high traffic volumes without overwhelming the database. The tactic directly supports performance efficiency by minimizing duplicate computations, improving response times, and allowing the backend to sustain significantly more concurrent users. In combination with the Cache-Aside pattern, this tactic forms a powerful mechanism for stabilizing platform performance during peak read demand.
+
 
 ####  Implementation Caching Results
 

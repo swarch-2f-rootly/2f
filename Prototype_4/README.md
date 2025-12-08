@@ -674,16 +674,13 @@ By maintaining these additional computed copies, the system can rapidly serve re
 
 ####  *Performance Metrics Comparison*
 
-| **Metric** | **After Caching** | **Redesign P4** | **Observation / Technical Impact** |
-|-------------|---------------------------|---------------------------|------------------------------------|
-| **Average Response Time (ms)** | 394.13 ms |  ms |  |
-| **Response Time Variance (%)** | 71.30 % | % |  |
-| **Throughput (req/sec)** | 93.32 req/s |  req/s | |
-| **Failed Requests (%)** | 0.00 % | % ||
-| **CPU Utilization (per instance)** | - |  | |
-| **Network Latency (avg)** | - |  ms | |
-| **Scalability Behavior** | Throughput saturated at ~93 req/s |  |  |
-| **System Availability** | 100% |  |  |
+| **Metric** | **Before ** | **After Redesign ** | **Observation / Technical Impact** |
+|-----------|--------------------------------|--------------------------------------|------------------------------------|
+| **Average Response Time (ms)** | 3520.17 ms | 5018.38 ms |Higher latency under equivalent load, indicating increased processing overhead.  |
+| **P95 (ms)** | 5272.00 ms | 8117.46 ms | Tail latency worsened, suggesting heavier load concentration or slower peak handling |
+| **P99 (ms)** | 7829.25 ms | 9800.23 ms | Extreme latency spikes increased, reducing predictability at high concurrency.|
+| **Error Rate (%)** | 0.00% | 0.00% |Stability preserved despite higher response times. |
+| **Throughput (req/s)** | 113.96 req/s | 57.32 req/s | System handles fewer requests per second, indicating reduced performance efficiency. |
 
 
 ####  Summary

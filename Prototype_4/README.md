@@ -473,6 +473,47 @@ Shows the hierarchical breakdown of the system into functional modules, clarifyi
 ## Quality Attributes
 ##  Security
 
+# Network Segmentation Pattern
+
+## Scenario Snapshot
+
+In this scenario, the system's initial architecture uses a flat Docker network where all components—frontend, backend services, databases, and message brokers—share the same network segment and expose multiple ports directly to the host.
+
+This design allows an external attacker to bypass the frontend entirely and directly access internal services, leading to unauthorized data exposure, manipulation, and potential denial of service.
+
+To mitigate this weakness, the **Network Segmentation Pattern** is applied by dividing the infrastructure into isolated public and private network zones, removing all host port mappings from backend services, and restricting external access to the frontend only.
+
+**Weakness**: Flat network architecture with no isolation between public-facing and internal services, and direct host port mappings exposing backend components.
+
+**Threat**: An external malicious actor with network scanning tools attempting to discover and directly connect to internal services.
+
+**Attack**: Port scanning followed by direct HTTP and database connection attempts to exposed backend ports (e.g., 8080, 5432, 8000-8003).
+
+**Risk**: Loss of confidentiality (data exposure), integrity (unauthorized modifications), and availability (direct DoS attacks on backend services).
+
+**Vulnerability**: Backend services and databases are directly accessible from the host network due to Docker port mappings.
+
+**Countermeasure**: Implement network segmentation using isolated Docker networks—a public network for the frontend and an internal private network for all backend services—with no host port mappings for internal components.
+
+## Explanation of the Countermeasure
+
+The **Network Segmentation Pattern** applies the **Limit Access** security tactic to enforce a clear network perimeter and reduce the attack surface.
+
+By reorganizing the Docker Compose configuration into two isolated networks:
+
+- **`rootly-public-network`**: Contains only the frontend with a single external port mapping.
+- **`rootly-private-network`**: Contains all backend services, databases, and internal components, marked as `internal: true` to prevent any external routing.
+
+All host port mappings are removed from backend services, ensuring they are unreachable from outside the Docker host. The frontend acts as the sole gateway, communicating with backend services via Docker's internal DNS over the private network.
+
+## Verification
+
+| Aspect | Before Segmentation (Flat Network) | After Segmentation (Isolated Networks) |
+|--------|------------------------------------|----------------------------------------|
+| **Response** | All backend ports are accessible from the host network, allowing direct external connections that bypass frontend security. | Backend services are unreachable from outside; only the frontend is accessible. All external connection attempts to backend ports are refused. |
+| **Response Measure** | 5+ successful external connections to internal services (API Gateway, databases, backends). Latency and errors increase under direct attack. | **0 successful external connections** to internal services. All attack attempts are blocked at the network layer. Internal communication remains fully functional. |
+
+
 
 ## Web Application Firewall
 

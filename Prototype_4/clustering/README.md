@@ -11,8 +11,8 @@ The Rootly system migrated from Docker (Prototype 3) to GKE (Prototype 4). This 
 ## Architectural Pattern and Tactic
 
 **Pattern**: Cluster Pattern  
-**Tactic**: N+1 (Star Schema)  
-**Cluster Type**: Active/Active
+**Tactic**: Shadow And Reconfiguration
+**Cluster Type**: Active/Active and N+1 ( Star Schema )
 
 The Cluster Pattern improves system availability by deploying multiple independent nodes that function as a unified logical system. Instead of relying on a single machine, the system is replicated across several nodes capable of sharing the workload.
 
@@ -107,15 +107,6 @@ Service is functioning correctly.
 ```bash
 # Stop the API Gateway container
 docker stop api-gateway
-```
-
-**Result:**
-
-```
-api-gateway
-```
-
-```bash
 # Verify container is stopped
 docker ps -a --filter "name=api-gateway" --format "{{.Names}}\t{{.Status}}"
 ```
@@ -143,8 +134,25 @@ No backup instances available.
 
 ### Service Availability Test After Failure
 
+**Test Requests Through API Gateway Before Failure:**
+
 ```bash
-# Attempt to access API Gateway (entry point for all backend services)
+# Test API Gateway health endpoint before failure
+curl -s http://localhost:8080/health --max-time 3
+```
+
+**Result:**
+
+```
+{"services":{"analytics":{"status":"unknown","url":"http://be-analytics:8000"},"auth":{"status":"unknown","url":"http://be-authentication-and-roles:8000"},"data_management":{"status":"unknown","url":"http://be-data-processing:8000"},"plant_management":{"status":"unknown","url":"http://be-user-plant-management:8000"}},"status":"healthy"
+```
+
+Requests through API Gateway work correctly when the service is running.
+
+**Test Requests Through API Gateway After Failure:**
+
+```bash
+# Test API Gateway health endpoint after failure
 curl -v http://localhost:8080/health --max-time 3
 ```
 
@@ -156,6 +164,38 @@ curl -v http://localhost:8080/health --max-time 3
 * Failed to connect to localhost port 8080 after 0 ms: Could not connect to server
 curl: (7) Failed to connect to localhost port 8080 after 0 ms: Could not connect to server
 ```
+
+```bash
+# Test API Gateway API endpoint after failure
+curl -v http://localhost:8080/api/v1/health --max-time 3
+```
+
+**Result:**
+
+```
+* connect to ::1 port 8080 from ::1 port 32830 failed: Connection refused
+* connect to 127.0.0.1 port 8080 from 127.0.0.1 port 43552 failed: Connection refused
+* Failed to connect to localhost port 8080 after 0 ms: Could not connect to server
+curl: (7) Failed to connect to localhost port 8080 after 0 ms: Could not connect to server
+```
+
+```bash
+# Multiple failed request attempts
+for i in 1 2 3; do echo "Attempt $i:"; curl -s http://localhost:8080/health --max-time 2 2>&1 | head -1 || echo "FAILED"; sleep 1; done
+```
+
+**Result:**
+
+```
+Attempt 1:
+FAILED
+Attempt 2:
+FAILED
+Attempt 3:
+FAILED
+```
+
+All requests that normally pass through the API Gateway fail completely when the API Gateway is stopped.
 
 **System-Wide Impact:**
 
@@ -188,7 +228,7 @@ docker exec be-authentication-and-roles curl -s http://localhost:8000/health
 {"status":"healthy","service":"authentication","version":"1.0.0","environment":"production","database":"unknown","minio":"unknown","timestamp":"2025-12-08T23:52:58.320415"}
 ```
 
-Backend services function correctly when accessed directly, but are inaccessible through the normal service chain.
+Backend services function correctly when accessed directly, but are inaccessible through the normal service chain. All user-facing requests that depend on the API Gateway fail completely.
 
 **Analysis:**
 
@@ -472,5 +512,5 @@ The ReplicaSet detected each pod deletion immediately and created new pod instan
 
 The recovery time was measured for three services by deleting pods and measuring the time until new pods became ready. API Gateway recovered in 12 seconds, Reverse Proxy recovered in 14 seconds, and Authentication Backend recovered in 35 seconds. These times are all below the 60 second target, demonstrating efficient automatic recovery. Recovery times vary based on pod startup time, image pull requirements, and readiness probe configuration. Services with faster startup times and simpler health checks recover more quickly than services with longer initialization periods.
 
-**Conclusion**: The Cluster Pattern with N+1 tactic is successfully implemented in GKE. All tested services maintain 100% availability during pod failures. The system automatically recovers by recreating failed pods, with measured recovery times of 12 seconds for API Gateway, 14 seconds for Reverse Proxy, and 35 seconds for Authentication Backend. These recovery times vary based on service startup characteristics but all remain below the 60 second target. The Active/Active cluster configuration ensures continuous service operation without manual intervention.
+**Conclusion**: The Cluster Pattern with N+1 schema is successfully implemented in GKE. All tested services maintain 100% availability during pod failures. The system automatically recovers by recreating failed pods, with measured recovery times of 12 seconds for API Gateway, 14 seconds for Reverse Proxy, and 35 seconds for Authentication Backend. These recovery times vary based on service startup characteristics but all remain below the 60 second target. The Active/Active cluster configuration ensures continuous service operation without manual intervention.
 

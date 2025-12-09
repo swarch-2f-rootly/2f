@@ -502,138 +502,24 @@ For detailed information about each security scenario, including quality attribu
 ---
 
 ##  Performance and Scalability
-###  Load Balancer
 
-![Scenario](images/LBP4.png)
-During peak usage, approximately **4,000 HTTP requests were sent within 1 or 2 seconds** (to simulate concurrency) from multiple external clients accessing the `/graphql_analytics` endpoint. Forwarded all requests directly to a single backend instance, causing **increased response times, uneven workload distribution, and CPU saturation**.  Although the system remained functional, **response time variance and throughput degradation** became evident as concurrency grew beyond ~3,000 users, exposing limitations in scalability and responsiveness.
+The performance and scalability quality attribute is addressed through two key architectural patterns that optimize system responsiveness and resource utilization under high concurrent load. Each pattern addresses specific performance concerns and is validated through comprehensive testing in the GKE/GCP cloud environment.
 
+### Performance Scenarios and Patterns
 
-| **Element** | **Description** |
-|--------------|-----------------|
-| **Artifact** | Analytics Backend — GraphQL analytics endpoint |
-| **Source** | Multiple external users concurrently sending analytics requests |
-| **Stimulus** | 4000 HTTP requests generated within a 2-second interval |
-| **Environment** | Normal operation under synthetic load testing |
-| **Response** | System processes all requests, logging latency and HTTP status outcomes |
-| **Response Measure** | Primary metrics: Response time variance (%) and failed request rate per test period |
+The following performance scenarios have been implemented and validated in Prototype 4:
 
-####  Countermeasure Implementation: Load Balancer Pattern
+1. **[Load Balancer](./load_balancer/README.md)**
+   - **Pattern**: Load Balancer Pattern
+   - **Purpose**: Distributes incoming client requests across multiple backend instances to avoid overload, reduce latency, and improve performance under concurrent usage
+   - **Validation**: Achieves 99.67% system availability, maintains stable performance across replicas, and prevents single-instance bottlenecks
 
-**Load Balancer** was introduced in front of the analytics backend cluster to enable **request distribution** across multiple instances.  
-The configuration applied included:
-- Round-robin routing strategy  
-- Health checks and failover logic  
-- Disabled session persistence to prevent node saturation  
-- Continuous metric collection via Prometheus and Grafana
+2. **[Caching](./caching/README.md)**
+   - **Pattern**: Cache-Aside Pattern
+   - **Purpose**: Improves performance by storing frequently-used or expensive-to-compute data in a fast-access memory layer (Redis), reducing database load and accelerating repeated access
+   - **Validation**: Achieves 0.00% failed request rate, significantly reduces database pressure, and maintains system stability under extreme load
 
-#### Architectural Pattern: Load Balancer
-
-The **Load Balancer pattern** enables the system to distribute incoming client requests across multiple backend instances to avoid overload, reduce latency, and improve performance under concurrent usage. Instead of directing all requests to a single analytics processor—as in the baseline configuration—the load balancer acts as an intelligent traffic director that continuously evaluates server health, routing capacity, and response times. This ensures a more uniform distribution of workload and prevents any single instance from becoming a bottleneck. By operating as an intermediary layer, the load balancer also improves fault isolation: when one backend instance becomes slow or unresponsive, the load balancer stops forwarding traffic to it and seamlessly redirects requests to healthy nodes.
-
-#### Architectural Tactic: Maintain Multiple Copies of Computations (Manage Resources)
-
-The **Maintain Multiple Copies of Computations** tactic enhances performance by replicating computation logic across several backend instances. Rather than relying on a single server to evaluate all GraphQL analytics queries, the system keeps multiple identical processors active at the same time. Each replica computes the same type of analytics workload, enabling the platform to absorb high request volumes by parallelizing the execution of identical computations. This ensures that heavy analytical operations do not saturate a single node and that response times remain stable even under sudden spikes in demand.
-
-Within the context of the load balancer, this tactic allows the system to scale out efficiently, because each new backend instance contributes additional computational capacity. The combination of the tactic and the load balancer pattern results in improved throughput, reduced latency variance, and more predictable performance during stress conditions.
-
-
-####  Implementation Load Balancer Results
-
-![post-lb-performance](images/con_lbGraphql_analytics_performance.png)
-
-####   Redesign prototype 4 Results
-
-![p4-lb-performance](images/LbAnalyticsP4.png)
-
-####  *Performance Metrics Comparison*
-
-| **Metric** | **After Load Balancer** | **Redesign P4** | **Observation / Technical Impact** |
-|-------------|---------------------------|---------------------------|------------------------------------|
-| **Average Response Time (ms)** | 285 ms | 6573 ms | Significant increase in latency due to additional layers (WAF, etc.) |
-| **Response Time Variance (%)** | 11% | 25.3 % | Higher variance under load |
-| **Throughput (req/sec)** | 260 req/s | 61 req/s | Throughput saturated earlier |
-| **Failed Requests (%)** | 0.3% | 0.33 % | Comparable error rate |
-| **Scalability Behavior** | Stable performance across replicas| Throughput saturated at ~61 req/s | Bottleneck likely in downstream services |
-| **System Availability** |Sustained at 99%+ | 99.67 % | High availability maintained |
-
-####  Summary
-The **Load Balancer pattern** successfully mitigated the initial performance bottleneck by distributing incoming traffic evenly across multiple backend instances.
-
-**Justification for Performance Changes in Redesign P4 (GCP):**
-The observed decrease in throughput and increase in response time compared to the previous local deployment is attributed to the transition to a distributed cloud environment (GCP) and architectural enhancements:
-1.  **Network Latency:** Moving from local loopback communication to real network calls between GCP services adds inherent latency.
-2.  **Architectural Complexity:** The introduction of the WAF, API Gateway, and additional routing layers increases the number of hops per request.
-3.  **Resource Constraints:** Cloud instances have strict resource limits compared to the local test environment, leading to earlier saturation. 
-
-###  Caching
-
-![Scenario](images/CachingP4.png)
-
-| **Element** | **Description** |
-|--------------|-----------------|
-| **Architectural Pattern** | Caching – Aside |
-| **Architectural Tactic** | Maintain Multiple Copies of Computations (Manage resources) |
-| **Artifact** | Analytics Backend |
-| **Source** | Concurrent web or mobile clients repeatedly requesting the same data |
-| **Stimulus** | A burst of 4000 GET requests within 20 seconds, all targeting an identical resource |
-| **Environment** | Normal operations |
-| **Response** | Processes each request (each triggering a full database query), records latency and query statistics in monitoring logs |
-| **Response Measure** | Average request latency (ms) |
-
-###  Countermeasure Implementation: Caching Pattern
-
-The **Cache-Aside pattern** was implemented within the analytics backend to store frequently accessed query results in memory.  
-The main configuration included:
-
-- In-memory cache layer (Redis).  
-- TTL (Time-To-Live) policy to ensure freshness of cached data.  
-- Cache invalidation rules for data updates.  
-- Integration with backend metrics for cache hit/miss analysis.
-
-#### Architectural Pattern: Caching – Aside
-
-The **Cache-Aside pattern** improves performance by storing frequently-used or expensive-to-compute data in a fast-access memory layer. Instead of querying the primary database every time clients request analytics data, the backend first checks whether the result is already stored in the cache. If it is (cache hit), the data is returned immediately, significantly reducing latency. If the data is not present (cache miss), it is fetched from the database, returned to the client, and then written to the cache so future requests can be served faster. This pattern reduces load on the database and accelerates repeated access to popular analytics endpoints.
-
-Cache-Aside is particularly effective in read-heavy analytics scenarios where users repeatedly request the same metrics or dashboards. By ensuring that expensive computations or database operations are performed once and reused many times, the pattern stabilizes performance during bursts of traffic. Additionally, the use of TTL and invalidation rules ensures that cached values remain fresh while still providing substantial performance gains.
-
-#### Architectural Tactic: Maintain Multiple Copies of Computations (Manage Resources)
-
-In the context of caching, this tactic refers to storing precomputed or repeatedly-used results in multiple locations—the primary database and the cache. Instead of recalculating analytics for each request or executing identical database queries thousands of times, the system maintains an additional copy of the result in Redis. This secondary copy acts as a computational shortcut that avoids redundant work and reduces overall system strain.
-
-By maintaining these additional computed copies, the system can rapidly serve repetitive workloads and absorb high traffic volumes without overwhelming the database. The tactic directly supports performance efficiency by minimizing duplicate computations, improving response times, and allowing the backend to sustain significantly more concurrent users. In combination with the Cache-Aside pattern, this tactic forms a powerful mechanism for stabilizing platform performance during peak read demand.
-
-
-####  Implementation Caching Results
-
-![post-ca-performance](images/post-ca-performance.png)
-
-####   Redesign prototype 4 Results
-
-![p4-lb-performance](images/graphql_analytics_comprehensive_performanceP4.png)
-
-####  *Performance Metrics Comparison*
-
-| **Metric** | **Before ** | **After Redesign ** | **Observation / Technical Impact** |
-|-----------|--------------------------------|--------------------------------------|------------------------------------|
-| **Average Response Time (ms)** | 3520.17 ms | 5018.38 ms |Higher latency under equivalent load, indicating increased processing overhead.  |
-| **P95 (ms)** | 5272.00 ms | 8117.46 ms | Tail latency worsened, suggesting heavier load concentration or slower peak handling |
-| **P99 (ms)** | 7829.25 ms | 9800.23 ms | Extreme latency spikes increased, reducing predictability at high concurrency.|
-| **Error Rate (%)** | 0.00% | 0.00% |Stability preserved despite higher response times. |
-| **Throughput (req/s)** | 113.96 req/s | 57.32 req/s | System handles fewer requests per second, indicating reduced performance efficiency. |
-
-
-####  Summary
-The implementation of the **Cache-Aside** pattern has provided significant advantages in terms of reliability and resource protection. Comparing the metrics with the previous phase (Load Balancer), the following points stand out:
-
-*   **Error Elimination:** The system achieved a **0.00% failed request rate**, a critical improvement over the 0.3% observed previously. This demonstrates that the cache acts as an effective buffer, preventing the database from becoming a point of failure under extreme load.
-*   **Stability vs. Speed:** While the recorded throughput (93.32 req/s) and response time (394.13 ms) show different behavior compared to the load balancing test, the system prioritized total availability (100%). The increase in response time variance (71.30%) is expected in cached systems: it reflects the difference between immediate responses (cache hits) and full database queries (cache misses).
-*   **Resource Efficiency:** By serving frequent data from Redis, pressure on the primary database is drastically reduced, allowing the system to handle traffic spikes without degrading service integrity or rejecting requests.
-
-**Justification for Performance Changes in Redesign P4 (GCP):**
-The performance metrics in P4 reflect the overhead of a real-world cloud deployment compared to the local baseline:
-1.  **Network Overhead:** Accessing the remote Redis cache in GCP involves network round-trips that are negligible in a local setup.
-2.  **Security Inspection:** The WAF inspects every request, adding processing time before the cache is even reached.
-3.  **Concurrency Handling:** The distributed nature of the system exposes race conditions and locking mechanisms that are less apparent in local tests, contributing to higher variance.
+For detailed information about each performance scenario, including quality attribute scenarios, validation steps, and results, please refer to the respective documentation in each pattern's directory.
 
 ---
 

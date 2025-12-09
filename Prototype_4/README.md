@@ -311,6 +311,7 @@ The result is predictable interactions, easier evolution, and independent scalin
 | **stg-user-plant-management** | MinIO storage for plant images and related documents. | Attached to user-plant management domain. | S3-compatible API -  data source connector. |
 ---
 
+
 ## Deployment Structure
 ### Deployment view
 
@@ -335,11 +336,11 @@ Based on the deployment view, the system's elements are allocated as follows:
     *   **API Gateway:** The `api-gateway` (Go) acts as the central orchestration layer, implementing authentication (JWT), rate limiting, and routing to backend microservices. Multiple instances are deployed using clustering for high availability.
     
     *   **Backend Microservices:** Deployed in the private subnet with dedicated persistence, all services use clustering with multiple replicas:
-        *   `be-authentication-and-roles` (FastAPI/Python): Manages authentication and RBAC, connected to `db-authentication-and-roles` (PostgreSQL) and `stg-authentication-and-roles` (Cloud Storage via MinIO proxy).
-        *   `be-user-plant-manager` (FastAPI/Python): Handles user/plant CRUD operations, connected to `db-user-plant-management` (PostgreSQL).
-        *   `be-analytics` (FastAPI/Python with Pandas, multiple instances): Performs statistical analysis and aggregations, connected to `db-analytics` (PostgreSQL with TimescaleDB extension) and `stg-analytics` (Cloud Storage via MinIO proxy) for query caching, load-balanced by `lb-analytics`.
+        *   `ms-authentication-and-roles` (FastAPI/Python): Manages authentication and RBAC, connected to `db-authentication-and-roles` (PostgreSQL) and `stg-authentication-and-roles` (Cloud Storage via MinIO proxy).
+        *   `ms-user-plant-manager` (FastAPI/Python): Handles user/plant CRUD operations, connected to `db-user-plant-management` (PostgreSQL).
+        *   `be-analytics` (FastAPI/Python with Pandas, multiple instances): Performs statistical analysis and aggregations, connected to `db-caching` (Redis) and `db-data-processing` (InfluxDB).
         *   `be-data-ingestion` (Go, multiple instances): Receives IoT sensor data and publishes to Kafka, load-balanced by `lb-data-ingestion`.
-        *   `be-data-processing` (Python with Kafka Consumer, multiple instances): Consumes from Kafka, transforms and validates data, writes to `db-data-processing` (InfluxDB).
+        *   `ms-data-processing` (Python with Kafka Consumer, multiple instances): Consumes from Kafka, transforms and validates data, writes to `stg-data-processing`and reads `db-data-processing` (InfluxDB).
     
     *   **Asynchronous Communication Services:**
         *   `queue-data-ingestion` (Apache Kafka with Zookeeper): Provides asynchronous event streaming backbone with persistent storage.
@@ -348,7 +349,7 @@ Based on the deployment view, the system's elements are allocated as follows:
     
     *   **Google Cloud Platform Infrastructure:**
         *   **GKE Cluster:** A managed Kubernetes cluster hosting all containerized services. The cluster spans multiple nodes across availability zones for high availability.
-        *   **Public Subnet:** Contains the GCP Load Balancer, WAF instances, reverse proxy, `fe-web`, and `api-gateway`, exposing controlled access to external clients.
+        *   **Public Subnet:** Contains the GCP Load Balancer and lb-data-ingestion, exposing controlled access to external clients.
         *   **Private Subnet:** Contains all backend microservices, databases, message queue, and internal load balancers, isolated from direct external access. Services communicate via Kubernetes internal networking and service discovery.
         *   **Cloud NAT:** Provides outbound internet access for private subnet resources without exposing them to the internet.
         *   **Cloud Storage Buckets:** Used for persistent storage of time-series data, logs, and backups, accessed via MinIO proxy services.
@@ -373,15 +374,14 @@ Based on the deployment view, the system's elements are allocated as follows:
     *   **Internal Communication (GKE Cluster):**
         *   All services within the GKE cluster communicate via Kubernetes internal networking using ClusterIP services and DNS-based service discovery.
         *   `api-gateway` routes requests to backend services based on endpoint mappings:
-            *   Authentication endpoints → `be-authentication-and-roles` (clustered)
-            *   User/plant management → `be-user-plant-manager` (clustered)
-            *   Analytics queries → `lb-analytics` → `be-analytics` instances (clustered)
+            *   Authentication endpoints → `ms-authentication-and-roles` (clustered)
+            *   User/plant management → `ms-user-plant-manager` (clustered)
         *   Backend services connect to their dedicated databases and storage layers using Kubernetes service names for DNS resolution.
-        *   Internal load balancers (`lb-analytics`, `lb-data-ingestion`) distribute traffic across multiple service instances with automatic health checks and failover.
+        *   Internal load balancer (`lb-data-ingestion`) distribute traffic across multiple service instances with automatic health checks and failover.
         *   Kubernetes automatically provides load balancing for all service-to-service communication.
     
     *   **Asynchronous Data Flow:**
-        *   `be-data-ingestion` → `queue-data-ingestion` (Kafka) → `be-data-processing` → `db-data-processing` → `db-analytics`
+        *   `be-data-ingestion` → `queue-data-ingestion` (Kafka) → `ms-data-processing` → `db-data-processing` → `db-caching`
         *   Kafka provides temporal decoupling, message persistence, and replay capabilities for high-throughput sensor data streams.
     
     *   **Storage and Persistence:**
@@ -398,8 +398,6 @@ The deployment structure reveals several key architectural patterns:
 *   **Service Discovery Pattern:** Kubernetes provides built-in DNS-based service discovery. Services locate each other using stable DNS names (e.g., `api-gateway.rootly-platform.svc.cluster.local`) rather than hardcoded IP addresses. When pods are recreated with new IPs, the service endpoints are automatically updated, and DNS resolution ensures seamless connectivity.
 
 *   **Event-Driven (Message Broker):** The `queue-data-ingestion` (Kafka) decouples the data ingestion and processing pipelines. This allows the system to handle high volumes of sensor data asynchronously and reliably, enabling temporal decoupling and independent scaling of producers and consumers.
-
-*   **Database per Service:** Each microservice has its own dedicated persistence layer (e.g., `be-authentication-and-roles` has `db-authentication-and-roles` and `stg-authentication-and-roles`). This ensures data isolation, schema autonomy, and allows each service to evolve independently.
 
 *   **Containerization:** Every software component is deployed as a containerized application within the GKE cluster. This standardizes the deployment, simplifies dependency management, and ensures consistency across environments. Kubernetes manages container lifecycle, resource allocation, and networking.
 

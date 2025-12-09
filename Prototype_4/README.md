@@ -31,11 +31,11 @@
   - [Reliability](#reliability)
     - [Replication pattern Reverse Proxy](#replication-pattern-reverse-proxy)
     - [Cluster pattern](#cluster-pattern)
-    - [Replication pattern for Analytics Data Sources](#replication-pattern-for-analytics-data-source)
+    - [Replication pattern for Analytics Data Sources](#replication-pattern-for-analytics-data-sources)
     - [Service Discovery](#service-discovery)
   - [Interoperability](#interoperability)
   
-- [Prototype – Deployment Instructions](#deployment-instructions)
+- [Prototype – Deployment Instructions](#Prototype---deployment-instructions)
 
 
 ## Software System

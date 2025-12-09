@@ -820,51 +820,44 @@ The Service Discovery Pattern with DNS-based resolution successfully eliminates 
 
 For detailed validation steps, test results, baseline comparisons, and complete scenario documentation, see the [Service Discovery Quality Scenario documentation](service_discovery/README.md).
 
-
 ---
 
 ## Interoperability
 
-![Interoperability scenario](images/Interoperability-Scenery%20-%20P4.png)
+![interoperability](interoperability/quality-scenario.png)
 
-**Pattern: Publish–Subscribe (telemetry fan-out).** Once `microcontroller-device` process a frame, it publishes the event into the internal pipeline so downstream subscribers (`lb-data-ingestion`) consume without direct coupling to devices.
+This scenario validates the Interoperability Pattern implementation to ensure effective communication between cyber-physical microcontroller devices and the data ingestion service. The system must interoperate with external IoT devices that continuously stream sensor data, validating payloads against the expected schema and rejecting values outside acceptable ranges to maintain data quality.
 
-**Tactics (SAIP):**  
-- **Discover Service:** Devices learn or rediscover the ingestion endpoint before sending.  
-- **Orchestrate:** Edge components coordinate how requests are sequenced, validated, and forwarded through `lb-data-ingestion`.  
-- **Tailor Interface:** Payloads are adjusted (units/field names) so syntactic and semantic expectations match downstream services.
+**Architectural Pattern**: Interoperability Pattern (Interface Adaptation)  
+**Architectural Tactics**: Discover Service, Orchestrate, Interface Adaptation (SAIP)
 
-The system must interoperate reliably with a cyber-physical component: a microcontroller continuously streams sensor data to `lb-data-ingestion`, where orchestration and interface tailoring enforce syntactic and semantic alignment before data is forwarded internally.
+The Interoperability Pattern enables communication between heterogeneous systems with different data formats, protocols, or schemas. The pattern focuses on the system's ability to understand, interpret, and validate data from external systems, ensuring successful information exchange despite differences in implementation. The data ingestion service validates incoming payloads against the expected schema, checks required fields, validates data types, and ensures measurement values are within acceptable ranges before forwarding data to Kafka for processing.
 
-#### Artifact
+**Quality Attribute Scenario Elements:**
 
-**Device-to-Ingestion Contract:** REST/HTTP payload contract between the microcontroller and `lb-data-ingestion`, including schema/field expectations, version headers, authentication token, and the orchestration/tailoring steps before data enters the internal pipeline.
+1. **Artifact**: Device-to-Ingestion contract defining REST/HTTP payload structure, schema expectations, validation rules, and orchestration steps.
 
-#### Source
+2. **Source**: Cyber-physical microcontroller devices equipped with environmental sensors (temperature, humidity, soil humidity, light intensity) sending telemetry frames every few seconds.
 
-**Cyber-physical microcontroller device** equipped with environmental sensors (temperature, humidity, soil metrics) sending telemetry frames every few seconds.
+3. **Stimulus**: Continuous telemetry stream with sensor measurements from microcontroller devices.
 
-#### Stimulus
+4. **Environment**: GKE production environment with GCP Load Balancer providing stable external IP accessible from internet locations. Multiple microcontroller devices communicate with the service from remote agricultural field locations over the internet.
 
-Continuous telemetry stream (e.g., one sample per second) plus occasional firmware updates introducing optional fields. Some frames arrive late or duplicated; devices rediscover the endpoint after network changes.
+5. **Response**: Devices discover stable Load Balancer endpoint accessible from internet, requests are validated and orchestrated, values are checked against acceptable ranges, valid frames are accepted and forwarded, invalid or out-of-range frames are rejected with clear error messages.
 
-#### Environment
+6. **Response Measure**: Processing success rate for valid frames, 100% rejection rate for invalid or out-of-range frames with logging, validation success rate for data conforming to schema and ranges, internet connectivity success rate from remote locations.
 
-Normal field operation with intermittent connectivity, standard network latency, and Dockerized backend on `rootly-network`; `lb-data-ingestion` scales horizontally, requiring devices to rediscover endpoints when addresses change.
+**GKE Implementation:**
 
-#### Response
+The GCP Load Balancer for Data Ingestion provides a stable external IP address accessible from internet locations, enabling remote microcontroller devices deployed in agricultural fields to communicate with the service over the internet. This eliminates the LAN requirement of the Docker baseline, where devices must be on the same local network. The service validates incoming payloads against the expected schema, checks required fields, validates data types, and ensures measurement values are within acceptable ranges before forwarding to Kafka, ensuring downstream consumers receive valid data within expected ranges.
 
-- **Discover service:** The device resolves or confirms the `lb-data-ingestion` endpoint before transmitting; when resolution fails, the request is rejected and logged.
-- **Orchestrate:** `lb-data-ingestion` sequences and distributes requests, validating syntax/semantics before passing accepted payloads to internal consumers.
-- **Tailor interface:** `lb-data-ingestion` normalizes units/field names and removes extraneous fields so downstream consumers see consistent semantics.
-- Accepted exchanges are logged as successful; malformed or semantically inconsistent requests are rejected with clear HTTP responses and logged for operators.
+**Validation Results:**
 
-#### Response Measure
+Device communication from remote internet locations achieves high processing success rate for valid telemetry frames. The service validates incoming payloads against the expected schema and rejects values outside acceptable ranges, ensuring data quality. Invalid payloads or values outside acceptable ranges are correctly rejected with clear error messages and logged for operator review. The stable Load Balancer IP enables successful internet connectivity from remote agricultural field locations.
 
-- **Correctly processed exchanges:** ≥99% of valid telemetry frames accepted, tailored, and forwarded.  
-- **Correctly rejected exchanges:** All malformed or semantically inconsistent frames are rejected and logged with device ID/version.  
-- **Discovery success:** Devices reconnect and resume after endpoint changes with high success (e.g., ≥98% within the first retry window).  
-- **Queue latency impact:** Added latency from `be-data-ingestion` to `queue-data-ingestion` remains within acceptable bounds during normal and retry conditions.
+The Interoperability Pattern with Interface Adaptation is successfully implemented in GKE, providing effective communication between cyber-physical devices and the data ingestion service from internet locations while maintaining data quality through schema validation and range checking.
+
+For detailed validation steps, test results, baseline comparisons, and complete scenario documentation, see the [Interoperability Quality Scenario documentation](interoperability/README.md).
 
 ---
 

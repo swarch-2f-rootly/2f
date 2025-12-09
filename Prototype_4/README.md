@@ -32,7 +32,8 @@
     - [Replication pattern Reverse Proxy](#replication-pattern-reverse-proxy)
     - [Cluster pattern](#cluster-pattern)
     - [Replication pattern for Analytics Data Sources](#replication-pattern-for-analytics-data-sources)
-    - [Service Discovery](#service-discovery)
+    - [Service Discovery](#service-discovery-pattern)
+    - [Active Redundancy for InfluxDB 3 Enterprise](#active-redundancy-for-influxdb-3-enterprise)
   - [Interoperability](#interoperability)
   
 - [Prototype Deployment Instructions](#Prototype-deployment-instructions)

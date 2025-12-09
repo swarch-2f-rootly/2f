@@ -740,7 +740,7 @@ To verify reliability, both data stores remain active during the test. A failure
 
 5.  **Verify recovery:** Confirm the pod is recreated and the system remains stable.
 
-**Expected Results:**
+**Results:**
 
 *   **Pod Status Transition:**
     ```text

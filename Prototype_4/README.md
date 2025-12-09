@@ -787,7 +787,7 @@ For detailed validation steps, test results, baseline comparisons, and complete 
 
 ![Interoperability scenario](images/Interoperability-Scenery%20-%20P4.png)
 
-**Interaction Pattern (SAIP): Orchestrated exchange with tailored interfaces.** The ingestion path coordinates (`microcontroller-device` → `lb-data-ingestion`) so telemetry moves in a defined sequence, and `lb-data-ingestion` tailors the interface (translating/normalizing payloads) to preserve semantic meaning before it reaches downstream services.  
+**Pattern: Publish–Subscribe (telemetry fan-out).** Once `microcontroller-device` process a frame, it publishes the event into the internal pipeline so downstream subscribers (`lb-data-ingestion`) consume without direct coupling to devices.
 **Tactics (SAIP):**  
 - **Discover Service:** Devices learn or rediscover the ingestion endpoint before sending.  
 - **Orchestrate:** Edge components coordinate how requests are sequenced, validated, and forwarded through `lb-data-ingestion`.  

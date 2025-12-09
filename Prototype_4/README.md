@@ -208,7 +208,7 @@ Finally, users can access all this information through an intuitive interface, a
    The browser (client) requests resources from the frontend (server) via HTTP. This ensures separation between presentation and business logic.  
 
 2. **Microservices Architecture**  
-   The backend is decomposed into a set of fine-grained, independently deployable services. Each service is responsible for a specific business capability (e.g., authentication, user management, analytics). This approach promotes scalability, resilience, and technological flexibility, as each service can be developed, deployed, and scaled independently. Communication between services is handled via well-defined APIs (REST/GraphQL) and asynchronous messaging (Kafka).
+   The backend is decomposed into a set of fine-grained, independently deployable services. Each service is responsible for a specific business capability (e.g., authentication, user management, analytics). This approach promotes scalability, resilience, and technological flexibility, as each service is developed, deployed, and scaled independently. Communication between services is handled via well-defined APIs (REST/GraphQL) and asynchronous messaging (Kafka).
 
 ### Architectural Patterns
 
@@ -435,7 +435,7 @@ The deployment structure reveals several key architectural patterns:
 - **Responsibility:** Defines the external boundary of the system and receives validated requests directed by the WAF.
 - **Component:** `WAF`
 - **Behavior:** Passes approved traffic strictly toward the Forward layer.
-- **Note:** Although the WAF is inherently a border/observer element and conceptually external to the tier hierarchy, it is intentionally included in this view to clarify its responsibilities and its role within the overall architectural flow.
+The WAF is a border/observer element conceptually external to the tier hierarchy, but it is included in this view to clarify its responsibilities and role within the overall architectural flow.
 
 #### **Tier 3 – Forward Layer**
 - **Responsibility:** managing request routing (traffic control) and hiding the internal architecture to improve security.
@@ -491,7 +491,7 @@ The diagram below illustrates the internal architecture of each microservice wit
 
 1. **Layered Architecture**
    Each microservice is internally structured into four distinct layers. This pattern ensures that responsibilities are clearly segregated, making the service easier to develop, test, and maintain. The dependencies flow in one direction, from the outer layers to the inner layers.
-    -   **Layer 1: Adapters:** This outermost layer is responsible for protocol-specific communication. It adapts incoming requests (e.g., from Kafka consumers or other services) and translates them into a format that the application's core can understand.
+    -   **Layer 1: Adapters:** This outermost layer is responsible for protocol-specific communication. It adapts incoming requests (e.g., from Kafka consumers or other services) and translates them into a format that the application's core understands.
     -   **Layer 2: Controllers:** This layer acts as the entry point for API requests (e.g., HTTP REST/GraphQL). It handles request validation, parsing, and calls the appropriate business logic in the Services layer.
     -   **Layer 3: Services:** This is the core of the microservice, containing the main business logic and orchestrating application operations. It is completely independent of the delivery mechanism (e.g., HTTP).
     -   **Layer 4: Models:** This innermost layer represents the application's data structures and domain entities. It is responsible for data access and persistence logic, interacting directly with the database.
@@ -645,15 +645,15 @@ The reverse-proxy represents a Single Point of Failure (SPOF). The reverse-proxy
 
 #### Source
 
-The source of the stimulus is external clients making HTTPS requests to the platform. These clients may include:
+The source of the stimulus is external clients making HTTPS requests to the platform. These clients include:
 - End users accessing the web frontend through browsers
 - Client applications consuming REST or GraphQL APIs
 
-All external traffic enters the system through ports 80 (HTTP) and 443 (HTTPS), which are handled by the `rootly-waf` instance. The source generates continuous request streams that may vary from normal operational load to peak traffic conditions affecting availability.
+All external traffic enters the system through ports 80 (HTTP) and 443 (HTTPS), which are handled by the `rootly-waf` instance. The source generates continuous request streams that vary from normal operational load to peak traffic conditions affecting availability.
 
 #### Stimulus
 
-The stimulus consists of inducing the failure of one active reverse-proxy instance. This may be triggered in several possible ways, however we will employ:
+The stimulus consists of inducing the failure of one active reverse-proxy instance. This is triggered by:
 
 **Operational interruption**: Deliberate termination such as killing the service process, stopping the container, introducing a network partition, or shutting down the virtual machine.
 
@@ -682,7 +682,7 @@ When the system operates without Active Redundancy, any failure or overload of t
 - **Service Unavailability**: Frontend and API Gateway become inaccessible despite being healthy
 - **Complete Traffic Block**: All requests fail to reach backend services
 
-At the client level, increased latency, elevated error rates, and unavailability are visible. Requests may accumulate, exceed processing limits, or return 5xx errors. User sessions are lost, and the user experience is severely degraded or completely unavailable.
+At the client level, increased latency, elevated error rates, and unavailability are visible. Requests accumulate, exceed processing limits, or return 5xx errors. User sessions are lost, and the user experience is severely degraded or completely unavailable.
 
 #### Response Measure
 
@@ -701,15 +701,15 @@ Active Redundancy is an architectural pattern in which multiple instances of the
 
 The pattern is designed to support fail-operational behavior rather than failover behavior. Because each replica is already hot and running, the system does not require activation or initialization time when a failure occurs. This drastically reduces Mean Time to Repair (MTTR) and ensures that service continuity is preserved even when a primary instance becomes unresponsive.
 
-**Note:** This pattern will be applied in the GCP Kubernetes cluster by creating multiple replicas of the reverse-proxy component.
+This pattern is implemented in the GCP Kubernetes cluster by creating multiple replicas of the reverse-proxy component.
 
 ### Architectural Tactic: Redundant Spare (Recover from Faults → Preparation and Repair)
 
-The Redundant Spare tactic focuses on preparing additional instances of a component so that the system can rapidly recover from faults. While the Active Redundancy pattern defines how replicas operate concurrently, the Redundant Spare tactic defines how the system anticipates failures by ensuring that additional operational capacity is already in place. The tactic emphasizes preparation and repair: preparation in the form of duplicate active reverse-proxy nodes that share identical responsibilities, and repair in the form of fast rerouting of traffic once a failure is detected.
+The Redundant Spare tactic focuses on preparing additional instances of a component so that the system rapidly recovers from faults. While the Active Redundancy pattern defines how replicas operate concurrently, the Redundant Spare tactic defines how the system anticipates failures by ensuring that additional operational capacity is already in place. The tactic emphasizes preparation and repair: preparation in the form of duplicate active reverse-proxy nodes that share identical responsibilities, and repair in the form of fast rerouting of traffic once a failure is detected.
 
 By applying this tactic, recovery does not depend on restarting, scaling up, or reconfiguring services. The spare reverse-proxy instances are already active, synchronized, and ready to handle traffic. Therefore, when the primary reverse-proxy instance fails—whether due to overload, resource exhaustion, or simulated node termination—the spare replica immediately absorbs the remaining traffic. The tactic thus enables extremely low recovery time and stable performance during unexpected operational disruptions.
 
-**Note:** This tactic will be implemented in the GCP Kubernetes cluster by deploying multiple reverse-proxy replicas with proper load balancing and health checks.
+This tactic is implemented in the GCP Kubernetes cluster by deploying multiple reverse-proxy replicas with load balancing and health checks.
 
 ### Verification (Post-Implementation)
 
@@ -856,7 +856,7 @@ In Docker Compose, services communicate using container names in Docker networks
 
 **GKE Implementation (Prototype 4):**
 
-Each Kubernetes Service receives a stable DNS name in the format `<service-name>.<namespace>.svc.cluster.local`. Services in the same namespace can use short names, simply `<service-name>`. CoreDNS automatically resolves service names to ClusterIPs, which are virtual IPs that remain stable regardless of pod changes. Service endpoints are automatically updated when pods are created, deleted, or rescheduled. Applications use service names in URLs, such as `http://auth-backend-service:8000`, instead of IP addresses. The API Gateway configuration uses service names like `http://auth-backend-service:8000` for all backend services, with no hardcoded IP addresses.
+Each Kubernetes Service receives a stable DNS name in the format `<service-name>.<namespace>.svc.cluster.local`. Services in the same namespace use short names, simply `<service-name>`. CoreDNS automatically resolves service names to ClusterIPs, which are virtual IPs that remain stable regardless of pod changes. Service endpoints are automatically updated when pods are created, deleted, or rescheduled. Applications use service names in URLs, such as `http://auth-backend-service:8000`, instead of IP addresses. The API Gateway configuration uses service names like `http://auth-backend-service:8000` for all backend services, with no hardcoded IP addresses.
 
 **Validation Results:**
 
@@ -902,15 +902,15 @@ The system must interoperate reliably with a cyber-physical component: a microco
 
 #### Stimulus
 
-Continuous telemetry stream (e.g., one sample per second) plus occasional firmware updates introducing optional fields. Some frames may arrive late or duplicated; devices may need to rediscover the endpoint after network changes.
+Continuous telemetry stream (e.g., one sample per second) plus occasional firmware updates introducing optional fields. Some frames arrive late or duplicated; devices rediscover the endpoint after network changes.
 
 #### Environment
 
-Normal field operation with intermittent connectivity, standard network latency, and Dockerized backend on `rootly-network`; `lb-data-ingestion` may scale horizontally, requiring devices to rediscover endpoints if addresses change.
+Normal field operation with intermittent connectivity, standard network latency, and Dockerized backend on `rootly-network`; `lb-data-ingestion` scales horizontally, requiring devices to rediscover endpoints when addresses change.
 
 #### Response
 
-- **Discover service:** The device resolves or confirms the `lb-data-ingestion` endpoint before transmitting; if resolution fails, the request is rejected and logged.
+- **Discover service:** The device resolves or confirms the `lb-data-ingestion` endpoint before transmitting; when resolution fails, the request is rejected and logged.
 - **Orchestrate:** `lb-data-ingestion` sequences and distributes requests, validating syntax/semantics before passing accepted payloads to internal consumers.
 - **Tailor interface:** `lb-data-ingestion` normalizes units/field names and removes extraneous fields so downstream consumers see consistent semantics.
 - Accepted exchanges are logged as successful; malformed or semantically inconsistent requests are rejected with clear HTTP responses and logged for operators.
@@ -921,3 +921,401 @@ Normal field operation with intermittent connectivity, standard network latency,
 - **Correctly rejected exchanges:** All malformed or semantically inconsistent frames are rejected and logged with device ID/version.  
 - **Discovery success:** Devices reconnect and resume after endpoint changes with high success (e.g., ≥98% within the first retry window).  
 - **Queue latency impact:** Added latency from `be-data-ingestion` to `queue-data-ingestion` remains within acceptable bounds during normal and retry conditions.
+
+---
+
+# Prototype – Deployment Instructions
+
+## Requirements
+
+- **Google Cloud Platform (GCP)** account with billing enabled
+- **Google Kubernetes Engine (GKE)** cluster created and configured
+- **kubectl** configured to connect to your GKE cluster
+- **gcloud** CLI installed and authenticated
+- **Docker** installed (for building images, if needed)
+- Access to **Google Artifact Registry** for container images
+
+## Prerequisites
+
+1. **GKE Cluster**: Ensure you have a GKE cluster running with:
+   - Node pool with sufficient resources (3 nodes, 4 vCPU, 16GB RAM each)
+   - Network and firewall rules configured
+   - Cloud NAT configured for outbound internet access
+   - Cloud Storage buckets created for persistent data
+
+2. **Namespace**: Create the `rootly-platform` namespace:
+
+```bash
+kubectl create namespace rootly-platform
+```
+
+3. **Verify Cluster Access**:
+
+```bash
+kubectl cluster-info
+kubectl get nodes
+```
+
+## Deployment Order
+
+The system must be deployed in the following order to ensure dependencies are satisfied:
+
+### Step 1: Common Resources (ConfigMaps and Secrets)
+
+Deploy shared configuration and secrets used by all services:
+
+```bash
+cd rootly-deployment/k8s
+
+# Apply common ConfigMaps and Secrets
+kubectl apply -f common/configmap.yaml -n rootly-platform
+kubectl apply -f common/secret.yaml -n rootly-platform
+```
+
+### Step 2: Infrastructure Services (Kafka and Zookeeper)
+
+Deploy the message queue infrastructure required by data ingestion and processing:
+
+```bash
+cd rootly-deployment/k8s/data-ingestion
+
+# Deploy Zookeeper (required by Kafka)
+kubectl apply -f zookeeper.yaml -n rootly-platform
+kubectl wait --for=condition=available --timeout=300s deployment/zookeeper-data-ingestion -n rootly-platform
+
+# Deploy Kafka
+kubectl apply -f kafka-broker-1.yaml -n rootly-platform
+kubectl wait --for=condition=available --timeout=300s deployment/kafka-data-ingestion -n rootly-platform
+
+# Deploy Kafka UI for monitoring
+kubectl apply -f kafka-ui-new.yaml -n rootly-platform
+```
+
+### Step 3: Backend Services
+
+Deploy backend microservices in the following order:
+
+#### 3.1 Authentication Backend
+
+```bash
+cd rootly-deployment/k8s/authentication-backend
+
+kubectl apply -f configmap.yaml -n rootly-platform
+kubectl apply -f secret.yaml -n rootly-platform
+kubectl apply -f deployment.yaml -n rootly-platform
+kubectl wait --for=condition=available --timeout=300s deployment/authentication-backend -n rootly-platform
+```
+
+#### 3.2 User Plant Backend
+
+```bash
+cd rootly-deployment/k8s/user-plant-backend
+
+kubectl apply -f configmap.yaml -n rootly-platform
+kubectl apply -f secret.yaml -n rootly-platform
+kubectl apply -f deployment.yaml -n rootly-platform
+kubectl wait --for=condition=available --timeout=300s deployment/user-plant-backend -n rootly-platform
+```
+
+#### 3.3 Analytics Backend
+
+```bash
+cd rootly-deployment/k8s/analytics
+
+# Deploy Redis (required by Analytics)
+kubectl apply -f redis.yaml -n rootly-platform
+kubectl wait --for=condition=available --timeout=300s deployment/redis -n rootly-platform
+
+# Deploy Analytics Backend
+kubectl apply -f configmap.yaml -n rootly-platform
+kubectl apply -f secret.yaml -n rootly-platform
+kubectl apply -f deployment.yaml -n rootly-platform
+kubectl wait --for=condition=available --timeout=300s deployment/be-analytics -n rootly-platform
+```
+
+#### 3.4 Data Processing
+
+```bash
+cd rootly-deployment/k8s/data-processing
+
+kubectl apply -f configmap.yaml -n rootly-platform
+kubectl apply -f secret.yaml -n rootly-platform
+kubectl apply -f deployment.yaml -n rootly-platform
+kubectl wait --for=condition=available --timeout=300s deployment/data-processing-worker -n rootly-platform
+```
+
+### Step 4: Data Ingestion Service
+
+Deploy the data ingestion service with its LoadBalancer (second entry point):
+
+```bash
+cd rootly-deployment/k8s/data-ingestion
+
+# Apply configuration
+kubectl apply -f configmap.yaml -n rootly-platform
+kubectl apply -f secret.yaml -n rootly-platform
+
+# Deploy data ingestion workers
+kubectl apply -f deployment.yaml -n rootly-platform
+kubectl wait --for=condition=available --timeout=300s deployment/data-ingestion-worker -n rootly-platform
+
+# Deploy LoadBalancer for data ingestion (IoT device entry point)
+kubectl apply -f ingress.yaml -n rootly-platform
+
+# Deploy network policies
+kubectl apply -f network-policy.yaml -n rootly-platform
+```
+
+The data ingestion LoadBalancer receives an external IP automatically. Verify with:
+
+```bash
+kubectl get svc data-ingestion-loadbalancer -n rootly-platform
+```
+
+### Step 5: API Gateway
+
+Deploy the API Gateway (internal service, not directly exposed):
+
+```bash
+cd rootly-deployment/k8s/apigateway
+
+kubectl apply -f configmap.yaml -n rootly-platform
+kubectl apply -f config-yaml.yaml -n rootly-platform
+kubectl apply -f secret.yaml -n rootly-platform
+kubectl apply -f deployment.yaml -n rootly-platform
+kubectl wait --for=condition=available --timeout=300s deployment/apigateway -n rootly-platform
+```
+
+### Step 6: Reverse Proxy
+
+Deploy the reverse proxy (routes traffic from WAF to internal services):
+
+```bash
+cd rootly-deployment/k8s/reverse-proxy
+
+kubectl apply -f deployment.yaml -n rootly-platform
+kubectl wait --for=condition=available --timeout=300s deployment/reverse-proxy -n rootly-platform
+```
+
+### Step 7: WAF (Web Application Firewall)
+
+Deploy the WAF with its LoadBalancer (primary entry point for web/mobile traffic):
+
+```bash
+cd rootly-deployment/k8s/waf
+
+# Deploy WAF instances
+kubectl apply -f deployment.yaml -n rootly-platform
+kubectl wait --for=condition=available --timeout=300s deployment/waf -n rootly-platform
+
+# Deploy WAF LoadBalancer (primary entry point)
+kubectl apply -f loadbalancer.yaml -n rootly-platform
+```
+
+The WAF LoadBalancer receives an external IP automatically. This is the primary entry point for all web and mobile client traffic. Verify with:
+
+```bash
+kubectl get svc waf-loadbalancer -n rootly-platform
+```
+
+### Step 8: SSR Frontend
+
+Deploy the frontend web application:
+
+```bash
+cd rootly-deployment/k8s/ssr-frontend
+
+kubectl apply -f configmap.yaml -n rootly-platform
+kubectl apply -f secret.yaml -n rootly-platform
+kubectl apply -f deployment.yaml -n rootly-platform
+kubectl wait --for=condition=available --timeout=300s deployment/ssr-frontend -n rootly-platform
+```
+
+### Step 9: Ingress (Alternative Routing)
+
+To use Ingress instead of LoadBalancer services:
+
+```bash
+cd rootly-deployment/k8s
+
+kubectl apply -f ingress.yaml -n rootly-platform
+```
+
+## Verification
+
+### Check All Pods
+
+```bash
+kubectl get pods -n rootly-platform
+```
+
+All pods are in `Running` state with `READY` status showing the correct number of replicas.
+
+### Check Services
+
+```bash
+kubectl get services -n rootly-platform
+```
+
+Verify that:
+- `waf-loadbalancer` has an `EXTERNAL-IP` (primary entry point)
+- `data-ingestion-loadbalancer` has an `EXTERNAL-IP` (IoT entry point)
+- All other services have `ClusterIP` type for internal communication
+
+### Check LoadBalancer IPs
+
+```bash
+# Get WAF LoadBalancer IP (primary entry point)
+kubectl get svc waf-loadbalancer -n rootly-platform -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+echo
+
+# Get Data Ingestion LoadBalancer IP (IoT entry point)
+kubectl get svc data-ingestion-loadbalancer -n rootly-platform -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+echo
+```
+
+### Test Health Endpoints
+
+```bash
+# Get WAF LoadBalancer IP
+WAF_IP=$(kubectl get svc waf-loadbalancer -n rootly-platform -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+# Test health endpoint through WAF
+curl -k https://${WAF_IP}/api/v1/health
+
+# Get Data Ingestion LoadBalancer IP
+DATA_INGESTION_IP=$(kubectl get svc data-ingestion-loadbalancer -n rootly-platform -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+# Test data ingestion health endpoint
+curl http://${DATA_INGESTION_IP}/health
+```
+
+## Service Endpoints
+
+Once deployed, the system provides two entry points:
+
+1. **WAF LoadBalancer** (Primary Entry Point):
+   - **Purpose**: Entry point for all web and mobile client traffic
+   - **Protocol**: HTTPS (ports 80 and 443)
+   - **Traffic Flow**: Internet → GCP Load Balancer → WAF instances → Reverse Proxy → API Gateway / Frontend
+   - **Access**: `https://<WAF_LOADBALANCER_IP>`
+
+2. **Data Ingestion LoadBalancer** (IoT Entry Point):
+   - **Purpose**: Entry point for IoT device sensor data
+   - **Protocol**: HTTPS
+   - **Traffic Flow**: IoT Devices → GCP Load Balancer → Data Ingestion Workers → Kafka
+   - **Access**: `https://<DATA_INGESTION_LOADBALANCER_IP>`
+
+## Monitoring and Logs
+
+### View Pod Logs
+
+```bash
+# View logs for a specific service
+kubectl logs -f deployment/<service-name> -n rootly-platform
+
+# Examples:
+kubectl logs -f deployment/waf -n rootly-platform
+kubectl logs -f deployment/apigateway -n rootly-platform
+kubectl logs -f deployment/data-ingestion-worker -n rootly-platform
+```
+
+### Check Pod Status
+
+```bash
+# Detailed pod information
+kubectl describe pod <pod-name> -n rootly-platform
+
+# Check events
+kubectl get events -n rootly-platform --sort-by='.lastTimestamp'
+```
+
+### Check Service Endpoints
+
+```bash
+# Verify service endpoints are correctly configured
+kubectl get endpoints -n rootly-platform
+```
+
+## Scaling Services
+
+All services are deployed with multiple replicas for high availability. To scale manually:
+
+```bash
+# Scale a specific service
+kubectl scale deployment/<service-name> --replicas=<number> -n rootly-platform
+
+# Example: Scale API Gateway to 3 replicas
+kubectl scale deployment/apigateway --replicas=3 -n rootly-platform
+```
+
+## Updating Services
+
+### Rolling Update
+
+```bash
+# Update a service image
+kubectl set image deployment/<service-name> <container-name>=<new-image>:<tag> -n rootly-platform
+
+# Monitor rollout status
+kubectl rollout status deployment/<service-name> -n rootly-platform
+```
+
+### Rollback
+
+```bash
+# Rollback to previous version
+kubectl rollout undo deployment/<service-name> -n rootly-platform
+```
+
+## Cleanup
+
+To remove all deployed resources:
+
+```bash
+# Delete all resources in namespace
+kubectl delete namespace rootly-platform
+
+# Or delete specific resources
+kubectl delete -f <directory-path> -n rootly-platform
+```
+
+## Troubleshooting
+
+### Pods Not Starting
+
+```bash
+# Check pod status and events
+kubectl describe pod <pod-name> -n rootly-platform
+
+# Check logs
+kubectl logs <pod-name> -n rootly-platform
+```
+
+### LoadBalancer Without External IP
+
+```bash
+# Check service status
+kubectl describe svc <service-name> -n rootly-platform
+
+# Verify firewall rules in GCP
+gcloud compute firewall-rules list
+```
+
+### Service Discovery Issues
+
+```bash
+# Verify DNS resolution
+kubectl run -it --rm debug --image=busybox --restart=Never -- nslookup <service-name>.rootly-platform.svc.cluster.local
+
+# Check service endpoints
+kubectl get endpoints <service-name> -n rootly-platform
+```
+
+## Additional Resources
+
+- [GKE Documentation](https://cloud.google.com/kubernetes-engine/docs)
+- [Kubernetes Documentation](https://kubernetes.io/docs/)
+- [Google Cloud Load Balancing](https://cloud.google.com/load-balancing/docs)
+- [Kubernetes Service Discovery](https://kubernetes.io/docs/concepts/services-networking/service/)
+

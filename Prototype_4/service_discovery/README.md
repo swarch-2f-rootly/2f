@@ -25,6 +25,8 @@ The system requires no hardcoded IPs, with automatic endpoint updates when pods 
 
 ## Quality Attribute Scenario
 
+<img src="quality-scenario.png" alt="quality attribute scenario" width="1000"/>
+
 ### 1. Artifact
 
 **Service-to-Service Communication in GKE Deployment:**

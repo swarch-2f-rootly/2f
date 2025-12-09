@@ -22,6 +22,8 @@ In GKE, this is implemented through ReplicaSets with multiple pod replicas. When
 
 ## Quality Attribute Scenario
 
+<img src="quality-scenario.png" alt="quality attribute scenario" width="1000"/>
+
 ### 1. Artifact
 
 **Critical Services in GKE Deployment:**

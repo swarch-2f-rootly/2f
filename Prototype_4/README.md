@@ -829,6 +829,8 @@ For detailed validation steps, test results, baseline comparisons, and complete 
 
 ### Active Redundancy for InfluxDB 3 Enterprise
 
+<img src="quality-scenario.png" alt="Quality Attribute Scenario" width="1000"/>
+
 This scenario validates the Active Redundancy Pattern implementation for InfluxDB 3 Enterprise deployed on GCP with replication at both the compute and data storage levels. The system uses a GCP TCP Proxy Load Balancer to distribute traffic to healthy instances, two independent VM instances for compute replication, and a GCP Cloud Storage bucket with dual-region replication for data redundancy.
 
 **Architectural Pattern**: Active Redundancy  

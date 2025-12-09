@@ -292,7 +292,7 @@ The result is predictable interactions, easier evolution, and independent scalin
 |---|---|---|---|
 | **WAF (Web Application Firewall)** | Identify malicious traffic, sanitizes requests, protects surface endpoints. | First layer of protection | Intercepts HTTP/S; forwards accepted traffic to Reverse Proxy. |
 | **Reverse Proxy** | SSL termination, routing, compression, request forwarding to load balancers and API gateway. | Sits between the WAF and fe-web and apigateway. | HTTP routing to fe-web, api-gateway. |
-| **Load Balancer** | Distributes incoming client and IoT requests and  distributes traffic across WAF instances. | Logical boundary between clients (IoT devices) and backend services. | Uses HTTP/REST and HTTP/Graphql protocols to route traffic to the API gateway or ingestion endpoints. |
+| **Load Balancer** | Receives incoming traffic from web browsers, mobile clients, and IoT devices, distributing requests across the available WAF entry points. Ensures high availability of the system’s external access point. | Serves as the logical boundary between external clients (including IoT devices) and the system’s security perimeter. Forwards all traffic exclusively to the WAF. | Accepts client connections via **HTTPS** and forwards validated traffic using **HTTP/REST** toward the WAF. |
 | **Frontend** | Provides the main user interface for real-time visualization of sensor data, dashboards, and management of plants and devices. | Executed as a SSR in the user’s browser; depends on the `api-gateway`. | Communicates with the `api-gateway` using REST/GraphQL and HTTP/REST . |
 | **api-gateway** | Central entry point for all client interactions. Routes, aggregates, and authenticates API requests to backend microservices. | Coordinates backend communication; does not contain domain logic. | REST/GraphQL and HTTP/REST |
 | **ms-authentication-and-roles** | Handles user authentication and authorization, managing JWT tokens, sessions, and role-based access control (RBAC). | Operates independently with its own database; does not directly interact with sensor or plant data. | HTTP/REST for authentication and role management. |
@@ -318,7 +318,6 @@ The result is predictable interactions, easier evolution, and independent scalin
 ![Layered-view](images/TiersP4.png)
 
 - **Layered view  - Layers** The structure of the logic layer is shown below to avoid redundancy in the main view.
-- The **Border element (WAF)** is not considered part of the tiers but acts as a **security perimeter** is like an observer.
 
 ### **Border Element**
 
@@ -330,41 +329,48 @@ The result is predictable interactions, easier evolution, and independent scalin
 
 ### **Layer Specifications**
 
-#### **Tier 1 – Forward Layer**
+#### **T1 – Distribution Layer**
+- **Responsibility:** Handles initial distribution of external traffic coming from web clients and IoT devices. Directs web/mobile traffic toward the WAF and routes IoT ingestion traffic toward the ingestion backend entry point.
+- **Components:** `load-balancer`, `lb-data-ingestion`
+- **Constraint:** The load balancer receives all external traffic, but only web/mobile traffic is forwarded to the WAF. IoT ingestion traffic is routed directly to `be-data-ingestion` through `lb-data-ingestion`.
+- **Communication style:** HTTP/REST, HTTPS
+
+#### **T2 – Border Layer**
+- **Responsibility:** Defines the external boundary of the system and receives validated requests directed by the WAF.
+- **Component:** `WAF`
+- **Behavior:** Passes approved traffic strictly toward the Forward layer.
+- **Note:** Although the WAF is inherently a border/observer element and conceptually external to the tier hierarchy, it is intentionally included in this view to clarify its responsibilities and its role within the overall architectural flow.
+
+#### **Tier 3 – Forward Layer**
 - **Responsibility:** managing request routing (traffic control) and hiding the internal architecture to improve security.
 - **Components:** `reverse proxy`
 - **Communication style:** Synchronous HTTP/REST
 - **Constraint:** Cannot access deeper tiers directly.
 
-#### **Tier 2 – Presentation Layer**
+#### **Tier 4 – Presentation Layer**
 - **Responsibility:** Provides user interfaces and manages client-side logic.
 - **Components:** `fe-web`, `fe-mobile`
 - **Communication style:** Synchronous HTTP/REST
 - **Constraint:** Cannot access deeper tiers directly.
 
-
-#### **Tier 3 – Synchronous Communication Layer**
+#### **Tier 5 – Synchronous Communication Layer**
 - **Responsibility:** Manages synchronous request routing and API orchestration.
 - **Components:** `api-gateway`
 - **Capabilities:** Request aggregation, throttling, authentication, and routing.
 - **Communication style:** Synchronous HTTP/gRPC
 
-
-#### **Tier 4 – Logic Layer**
+#### **Tier 6 – Logic Layer**
 - **Responsibility:** Implements the system’s business logic and processing workflows.
 - **Components:**
   - `be-authentication-and-roles`
   - `be-user-plant-management`
   - `be-analytics`
+  - `be-data-ingestion`
+  - `be-data-processing`
 - **Capabilities:** Core computation, orchestration, and validation.
 - **Communication style:** HTTP and message-based (Kafka, queues).
 
-#### **Tier 5 – Distribution Layer**
-- **Responsibility:** Balances and distributes requests between backend services to optimize performance and redundancy.
-- **Components:** `lb-analytics`, `lb-data-ingestion`
-- **Capabilities:** Load balancing, health checks, and failover.
-
-#### **Tier 6 – Asynchronous Communication Layer**
+#### **Tier 7 – Asynchronous Communication Layer**
 - **Responsibility:** Handles event-driven communication and background processing.
   - `be-data-ingestion` (producer)
   - `be-data-processing` (consumer)
@@ -373,7 +379,7 @@ The result is predictable interactions, easier evolution, and independent scalin
 - **Capabilities:** Asynchronous data ingestion, queue management, and event propagation.
 - **Communication style:** Kafka/Event Streaming
 
-#### **Tier 7 – Data Layer**
+#### **Tier 8 – Data Layer**
 - **Responsibility:** Manages data persistence and storage across all domains.
 - **Datastores:**
   - `db-authentication-and-roles`, `stg-authentication-and-roles`
@@ -400,8 +406,8 @@ The diagram below illustrates the internal architecture of each microservice wit
   The system is logically divided into seven layers, each serving a distinct function — from presentation and routing to computation, distribution, asynchronous messaging, and data management.
   
 - **Security Perimeter (Border):**  
-  The WAF acts as the first line of defense, inspecting and controlling traffic before it reaches the first tier.
-
+  The WAF operates as an external **border layer**, isolating the system from untrusted traffic and acting as the first defensive boundary.
+---
 
 ## Decomposition Structure
 ### Decomposition View

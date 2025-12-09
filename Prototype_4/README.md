@@ -681,81 +681,47 @@ For detailed validation steps, test results, baseline comparisons, and complete 
 
 ![scenario](images/replicationDB.png)
 
-This scenario validates the reliability of the analytics data-access layer by applying the **Active Redundancy** pattern and the **Redundant Spare** tactic. The objective is to ensure continuous availability of analytics metrics even if one of the data sources (`db-caching` or `db-data-processing`) fails. Although these stores serve different primary purposes (caching vs. persistence), both are capable of independently supplying the required data, acting as active backups for each other.
+This scenario validates the reliability of the analytics data-access layer by applying the **Active Redundancy** pattern and the **Redundant Spare** tactic. The objective is to ensure continuous availability of analytics metrics even if one of the data sources (`db-caching` or `db-data-processing`) fails.
 
-#### Artifact
-The **Analytics Backend** data-access subsystem, which interacts with two active data stores:
-*   **db-caching:** Stores frequently accessed metric summaries.
-*   **db-data-processing:** Stores the primary computed dataset.
+**Architectural Pattern**: Active Redundancy (Hot Spare)  
+**Architectural Tactic**: Redundant Spare (Recover from Faults → Preparation and Repair)  
+**Replication Type**: Active/Active (Heterogeneous)
 
-#### Source
-A high-volume request generator simulating peak operational load, issuing concurrent metric queries to the analytics backend.
+**Quality Attribute Scenario Elements:**
 
-#### Stimulus
-The induced failure of one active data store (`db-caching` or `db-data-processing`). This is triggered by either:
-*   **Resource Saturation:** Overloading CPU/Memory/IO.
-*   **Operational Interruption:** Terminating the process, container, or network connection.
+1. **Artifact**: The **Analytics Backend** data-access subsystem, which interacts with two active data stores: **db-caching** (Redis) for frequently accessed metric summaries, and **db-data-processing** (InfluxDB) for the primary computed dataset.
 
-#### Environment
-The system operates under normal conditions with both data stores active and reachable. No external failover mechanisms are pre-configured; the application logic handles the redundancy.
+2. **Source**: A high-volume request generator simulating peak operational load, issuing concurrent metric queries to the analytics backend.
 
-#### Response
-Upon failure of a data source instance:
-1.  The consuming component detects the timeout or connection error.
-2.  Traffic is immediately redirected to the remaining active data source.
-3.  The system continues to serve requests using the surviving replica while the infrastructure recovers the failed instance.
+3. **Stimulus**: The induced failure of one active data store (`db-caching` or `db-data-processing`). This is triggered by either resource saturation (overloading CPU/Memory/IO) or operational interruption (terminating the process, container, or network connection).
 
-#### Response Measure
-*   **System Availability:** Remains high (near 100%) during the failure window.
-*   **Failover Behavior:** Automatic switch to the alternate source without manual intervention.
-*   **Error Rate:** Near **0%**. The redundancy masks the internal failure.
-*   **Latency:** Maintained within defined thresholds, accepting slight increases if falling back to slower storage.
+4. **Environment**: The system operates under normal conditions with both data stores active and reachable. No external failover mechanisms are pre-configured; the application logic handles the redundancy.
 
-#### Architectural Pattern: Active Redundancy (Hot Spare)
-Multiple components operate simultaneously and remain fully active. Unlike passive failover, replicas do not require promotion. In this system, `db-caching` and `db-data-processing` function as active redundant providers. If one fails, the other immediately sustains the workload, ensuring low recovery time.
+5. **Response**: Upon failure of a data source instance, the consuming component detects the timeout or connection error. Traffic is immediately redirected to the remaining active data source. The system continues to serve requests using the surviving replica while the infrastructure recovers the failed instance.
 
-#### Architectural Tactic: Redundant Spare (Preparation & Repair)
-Ensures alternate operational capacity is prepared *before* failure. Since both data sources run concurrently, the system shifts traffic to the "spare" (the surviving node) instantly upon fault detection, without waiting for provisioning or restarts.
+6. **Response Measure**: Primary metrics include System Availability (target > 99%), Failover Behavior (automatic switch without manual intervention), Error Rate (target < 1%), and Latency (maintained within defined thresholds).
 
-#### Verification
-To verify reliability, both data stores remain active during the test. A failure is induced on either db-caching or db-data-processing, and the system’s behavior is observed. The backend is expected to continue serving analytics responses through the surviving store with minimal disruption.
+**Baseline (Docker - Prototype 3):**
 
-**Verification Steps (Kubernetes):**
+In the previous Docker Compose prototype, the analytics backend relied on single instances of data stores without any replication or redundancy strategies. The `db-caching` and `db-data-processing` components operated as single points of failure. If `db-caching` failed, the system experienced increased latency and load on the primary database. If `db-data-processing` failed, the analytics service became completely unavailable for historical data queries, resulting in 500 errors and a complete service outage for analytics features. No automatic recovery or fallback mechanism existed.
 
-1.  **Check initial state:** Ensure all pods are running.
-    ```bash
-    kubectl get pods -n rootly-private-network
-    ```
+**GKE Implementation (Prototype 4):**
 
-2.  **Start load test:** Run a continuous stream of requests to the analytics endpoint.
+In the GKE implementation, the Analytics Backend is configured to treat `db-caching` and `db-data-processing` as active redundant providers. Although they serve different primary purposes (caching vs. persistence), both are capable of independently supplying the required data. The backend logic is designed to failover seamlessly: if the primary cache fails, it retrieves data directly from the persistent DB; if the persistent DB fails, it serves available data from the cache. This ensures continuous operation while Kubernetes handles the restart of the failed pod.
 
-3.  **Induce failure:** Delete one of the data source pods (e.g., Redis cache).
-    ```bash
-    kubectl delete pod -l app=db-caching -n rootly-private-network
-    ```
+**Validation Results:**
 
-4.  **Monitor availability:** Watch the load test output for errors and check pod status.
-    ```bash
-    kubectl get pods -n rootly-private-network -w
-    ```
+- **System Availability**: Maintained at > 99% during the failure window. The system successfully returned data from the surviving replica.
 
-5.  **Verify recovery:** Confirm the pod is recreated and the system remains stable.
+- **Failover Behavior**: The application automatically switched to the alternate source without manual intervention upon detecting the failure.
 
-**Results:**
+- **Error Rate**: Negligible (< 1%) connection refused or timeouts were observed during the transition period.
 
-*   **Pod Status Transition:**
-    ```text
-    NAME                            READY   STATUS        RESTARTS   AGE
-    db-caching-74d6f8-abcde         1/1     Running       0          5m
-    db-caching-74d6f8-abcde         1/1     Terminating   0          5m
-    db-caching-74d6f8-fghij         0/1     Pending       0          0s
-    db-caching-74d6f8-fghij         1/1     Running       0          5s
-    ```
+- **Latency**: A minor transient spike (< 100ms) was detected during the failover to the secondary data source, stabilizing immediately.
 
-*   **Service Continuity:**
-    *   **HTTP Status:** >= 99% 200 OK responses during the transition.
-    *   **Error Rate:** Negligible (< 1%) connection refused or timeouts.
-    *   **Latency:** Minor transient spike (< 100ms) detected during the failover to the secondary data source, stabilizing immediately.
+- **Pod Recovery**: Kubernetes successfully recreated the failed pod, restoring full redundancy automatically.
+
+For detailed validation steps, test results, baseline comparisons, and complete scenario documentation, see the [Replication Quality Scenario documentation](replication/README.md).
 
 
 ### Service Discovery

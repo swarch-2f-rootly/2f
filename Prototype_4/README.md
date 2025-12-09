@@ -35,7 +35,7 @@
     - [Service Discovery](#service-discovery)
   - [Interoperability](#interoperability)
   
-- [Prototype – Deployment Instructions](#Prototype---deployment-instructions)
+- [Prototype Deployment Instructions](#Prototype-deployment-instructions)
 
 
 ## Software System
@@ -909,7 +909,7 @@ For detailed validation steps, test results, baseline comparisons, and complete 
 
 ---
 
-# Prototype – Deployment Instructions
+# Prototype Deployment Instructions
 
 ## Requirements
 

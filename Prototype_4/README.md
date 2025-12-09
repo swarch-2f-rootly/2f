@@ -633,7 +633,7 @@ The verification process will confirm that the Active Redundancy pattern and Red
 This scenario validates the Cluster Pattern implementation in GKE to improve system availability through multiple pod replicas. The system migrated from Docker (Prototype 3) with single-instance deployments to GKE (Prototype 4) with multiple replicas using the N+1 schema.
 
 **Architectural Pattern**: Cluster Pattern  
-**Architectural Tactic**: Redundant Spare (Recover from Faults → Preparation and Repair)  
+**Architectural Tactic**: Shadow and Reconfiguration
 **Cluster Schema**: N+1 (Star Schema)  
 **Cluster Type**: Active/Active
 
@@ -649,7 +649,7 @@ This scenario validates the Cluster Pattern implementation in GKE to improve sys
 
 5. **Response**: When a pod fails, the Kubernetes Service automatically routes traffic away from the failed pod to healthy replicas. The ReplicaSet detects the pod failure and automatically creates a new pod instance to replace it. The application continues serving requests without interruption, maintaining service continuity. Kubernetes health checks (liveness and readiness probes) ensure only healthy pods receive traffic.
 
-6. **Response Measure**: Primary metrics include availability during failure (target > 99%), recovery time from pod failure to new pod ready (target < 60 seconds), request success rate during failure (target > 99%), and replica count maintenance. Measured results show 100% availability, recovery times of 12-35 seconds, and 100% request success rate.
+6. **Response Measure**: Primary metrics include availability during failure, recovery time from pod failure to new pod ready, request success rate during failure, and replica count maintenance. Measured results show 100% availability, recovery times of 12-35 seconds, and 100% request success rate.
 
 **Baseline (Docker - Prototype 3):**
 
@@ -661,11 +661,11 @@ All critical services are deployed with multiple replicas: API Gateway (2 replic
 
 **Validation Results:**
 
-- **Availability During Failure**: 100% availability maintained during pod failures. All tested services (API Gateway, Reverse Proxy, Authentication Backend) continue serving requests without interruption.
+- **Availability During Failure**: 100% availability maintained during pod failures (in the testing period). All tested services (API Gateway, Reverse Proxy, Authentication Backend) continue serving requests without interruption.
 
 - **Measured Recovery Times**: API Gateway recovered in 12 seconds, Reverse Proxy recovered in 14 seconds, and Authentication Backend recovered in 35 seconds. All recovery times are well below the 60 second target.
 
-- **Request Success Rate**: 100% of requests succeed during pod failures. Traffic automatically routes to remaining healthy pods with no service interruption.
+- **Request Success Rate**: 100% of requests succeed during pod failures (in the testing period). Traffic automatically routes to remaining healthy pods with no service interruption.
 
 - **Automatic Load Balancing**: Kubernetes Services act as load balancers, automatically distributing traffic across pod replicas. Load balancing is transparent to applications and requires no code changes.
 
@@ -723,55 +723,57 @@ In the GKE implementation, the Analytics Backend is configured to treat `db-cach
 
 For detailed validation steps, test results, baseline comparisons, and complete scenario documentation, see the [Replication Quality Scenario documentation](replication/README.md).
 
+---
 
-### Service Discovery
+### Service Discovery Pattern
 
-The scenario presented describes the system’s behavior in response to changes in its internal topology through the application of the **Service Discovery Pattern**, a fundamental architectural pattern in distributed systems and particularly in microservices architectures. This pattern is supported by the architectural tactic **Recover from Faults → Preparation and Repair**, which aims to maintain system resilience in the presence of failures or dynamic modifications.
+![Service discovery scenario](service_discovery/quality-scenario.png)
 
-![Service discovery scenario](images/Service-Discovery-Pattern.png)
+This scenario validates the Service Discovery Pattern implementation in GKE to enable reliable service-to-service communication using stable service names and DNS resolution. The system migrated from Docker (Prototype 3) with container name-based discovery and ephemeral IPs to GKE (Prototype 4) with DNS-based service discovery and stable ClusterIPs.
 
-#### Artifact
+**Architectural Pattern**: Service Discovery Pattern  
+**Architectural Tactic**: Reconfiguration (Recover from Faults → Preparation and Repair)
 
-The affected artifact is the entire system that supports internal communication between microservices. The Service Discovery component acts as an intermediary to register and resolve the available instances.
+**Quality Attribute Scenario Elements:**
 
-#### Source
+1. **Artifact**: Service-to-service communication system in GKE deployment including API Gateway, Authentication Backend, Analytics Backend, User Plant Backend, and Data Processing Service. Kubernetes DNS (CoreDNS) provides automatic DNS resolution for service names, while Service Endpoints maintain automatically updated endpoint lists. All services must discover and communicate with each other using stable service names, regardless of pod IP changes or rescheduling.
 
-The stimulus originates from any internal microservice that needs to invoke another service using a logical name instead of a fixed physical address. This mechanism decouples services from each other and prevents static dependencies.
+2. **Source**: Internal service callers with knowledge at the application code and configuration level, using tools such as HTTP clients and service configuration through ConfigMaps. The intent is to make service-to-service calls using service names. The origin includes API Gateway making requests to backend services, as well as backend services calling other backends.
 
-#### Stimulus
+3. **Stimulus**: Service discovery events including pod recreation or rescheduling resulting in new IP addresses, service scaling up or down causing endpoint changes, pod failure and replacement triggering endpoint list updates, first-time service access requiring DNS resolution, and network partition or DNS server restart. The system must continue resolving service names correctly and routing traffic to healthy endpoints.
 
-The system experiences changes in its topology due to events such as:
+4. **Environment**: GKE production environment with services deployed in `rootly-platform` namespace using Kubernetes Services with ClusterIP type for internal communication. CoreDNS provides DNS resolution, while service endpoints are automatically maintained by Kubernetes. Pods are recreated, rescheduled, or scaled dynamically. The system is under normal operation with services making inter-service calls using service names.
 
-- Autoscaling (automatic creation or removal of instances)
-- Restarts of containers or services
-- Occasional instance failures
-- New deployments or updates
+5. **Response**: CoreDNS resolves service names to ClusterIPs, providing DNS resolution. Kubernetes maintains endpoint lists for each service, enabling endpoint discovery. Service ClusterIP routes traffic to healthy pod endpoints. Endpoint lists update automatically when pods change, ensuring current routing information. Applications continue making requests using service names without requiring code changes, maintaining service continuity.
 
-These events modify the set of available instances that must be discovered by the system.
+6. **Response Measure**: Primary metrics include DNS resolution time, endpoint update time, service discovery success rate, and connection success rate. All metrics achieved their targets.
 
-#### Environment
+**Baseline (Docker - Prototype 3):**
 
-The scenario occurs under normal operating conditions, where the infrastructure is expected to dynamically adapt without interrupting the functioning of the services.
+In Docker Compose, services communicate using container names in Docker networks. Container IP addresses change when containers restart, causing applications using hardcoded IPs to break. Container names work for service discovery but are less reliable in dynamic environments where containers are frequently recreated. There is no stable virtual IP address like Kubernetes ClusterIP, requiring manual configuration for reliable service discovery. DNS resolution depends on Docker's embedded DNS server, which introduces delays and is not as robust as Kubernetes DNS. Service discovery breaks when containers are recreated with different names, requiring manual intervention to restore connectivity.
 
-#### Response
+**GKE Implementation (Prototype 4):**
 
-Service Discovery continuously updates and resolves the available instances to ensure internal communication.  
-This involves:
+Each Kubernetes Service receives a stable DNS name in the format `<service-name>.<namespace>.svc.cluster.local`. Services in the same namespace can use short names, simply `<service-name>`. CoreDNS automatically resolves service names to ClusterIPs, which are virtual IPs that remain stable regardless of pod changes. Service endpoints are automatically updated when pods are created, deleted, or rescheduled. Applications use service names in URLs, such as `http://auth-backend-service:8000`, instead of IP addresses. The API Gateway configuration uses service names like `http://auth-backend-service:8000` for all backend services, with no hardcoded IP addresses.
 
-- Registering new instances
-- Removing failed instances
-- Updating routing or addressing information
-- Maintaining dynamic resolution based on logical names
+**Validation Results:**
 
-Through this process, the system ensures that any microservice can locate another regardless of its current physical location or the number of replicas.
+- **DNS Resolution**: Service names resolve to stable ClusterIPs automatically. DNS resolution works immediately for new services with resolution times under 50ms.
 
-#### Response Measure
+- **Endpoint Updates**: Service endpoints update automatically when pods change. Endpoint lists update within 3 seconds of pod changes, well below the 5 second target.
 
-The objective of the scenario is to achieve a high service resolution rate, ensuring that most internal requests can be successfully resolved through the discovery mechanism under normal operating conditions.
+- **Service Discovery Success Rate**: 100% of service name resolutions succeed (in the testing period). All tested services (API Gateway, Authentication Backend, Analytics Backend, User Plant Backend, Data Processing) successfully resolve and communicate using service names.
 
-#### Architectural Pattern: Service Discovery Pattern
+- **Connection Success Rate**: 100% of connections using service names succeed (in the testing period). Service-to-service communication remains functional during pod changes, recreations, and rescheduling.
 
-#### Architectural Tactic: Recover from Faults > Preparation and Repair
+- **ClusterIP Stability**: ClusterIPs remain stable regardless of pod changes. The `auth-backend-service` maintains ClusterIP `10.12.137.232` even when pods are recreated with new IPs, ensuring consistent service discovery.
+
+- **Cross-Namespace Discovery**: Full DNS names enable cross-namespace service discovery. Short names work within the same namespace for convenience.
+
+The Service Discovery Pattern with DNS-based resolution successfully eliminates the need for hardcoded IPs and ensures reliable service-to-service communication even when pods are recreated or rescheduled.
+
+For detailed validation steps, test results, baseline comparisons, and complete scenario documentation, see the [Service Discovery Quality Scenario documentation](service_discovery/README.md).
+
 
 ---
 

@@ -78,12 +78,22 @@ Finally, users can access all this information through an intuitive interface, a
   - Protocols: **HTTP/REST**
   - Relations: Consumes `lb-data-ingestion` via HTTP/REST
 
+- **Load Balancer**
+  - Type: Load Balancer
+  - Responsibility:
+    - Manages multiple **WAF** instances to avoid bottlenecks.
+    - Distributes incoming traffic from clients (web and mobile) across WAF instances.
+  - Protocols: **HTTPS**
+  - Relationships:
+    - Receives traffic from `web-browser` and `fe-mobile`.
+    - Sends requests to `WAF` instances.
+
 - **WAF**
   - Type: Security Firewall / Edge Service
   - Responsibility: Protects web applications from common attacks while running.
   - Protocols: **HTTPS**
   - Relations:
-    - Receives requests from browser/mobile.
+    - Receives requests from `load balancer`.
     - Forwards validated traffic to `reverse proxy`
 
 - **Reverse Proxy**
@@ -106,7 +116,7 @@ Finally, users can access all this information through an intuitive interface, a
   - Type: Mobile client application
   - Responsibility: Provides a mobile-optimized interface consuming backend APIs directly via REST.
   - Protocols: **HTTP/REST**
-  - Relations: Consumes the WAF (reverse proxy) via HTTP/REST
+  - Relations: Consumes the chain `load balancer` → `WAF` → `reverse-proxy`.
 
 - **fe-web**
   - Type: Web client application
@@ -114,23 +124,15 @@ Finally, users can access all this information through an intuitive interface, a
   - Role in connections: Consumer
   - Relations:
     - Serves the "web-browser" (HTTPS).
-    - Consumes `WAF` (HTTPS).
+    - Consumes `reverse-proxy` (HTTPS).
 
 - **api-gateway**
   - Type: Gateway / API Orchestrator
   - Responsibility: Central entry point for all clients. Routes, aggregates, and authenticates API requests to backend microservices.
   - Protocols: **HTTP/GraphQL/REST**
   - Relations:
-    - Receives requests from the WAF reverse proxy.
-    - Consumes services from backend modules (`lb-analytics`, `ms-user-plant-management`, `ms-authentication-and-roles`).
-
-- **lb-analytics**
-  - Type: Load Balancer
-  - Responsibility: Distributes incoming requests from `api-gateway` across multiple instances of the `be-analytics` service.
-  - Protocols: **HTTP/GraphQL**
-  - Relations:
-    - Receives requests from `api-gateway`.
-    - Routes traffic to `be-analytics`.
+    - Receives requests from the `reverse-proxy`.
+    - Consumes services from backend modules ( `ms-user-plant-management`, `ms-authentication-and-roles`, etc.).
 
 - **ms-authentication-and-roles**
   - Type: Backend Microservice
@@ -153,7 +155,6 @@ Finally, users can access all this information through an intuitive interface, a
   - Responsibility: Analytics and reporting service.
   - Protocols: **HTTP/GraphQL** for flexible queries.
   - Relations:
-    - Served by `lb-analytics`.
     - Consumes `db-caching` (data resource protocol).
     - Consumes `db-data-processing` (data resource protocol).
 
@@ -235,6 +236,9 @@ The result is predictable interactions, easier evolution, and independent scalin
   - Native mobile application for on-the-go monitoring and management.
   - **Relation:** Connects to **WAF**.
 
+- **Load Balancer**
+  - Balances incoming client traffic across WAF instances.
+
 - **WAF (Web Application Firewall)**
   - First security boundary protecting the system from common web exploits (SQLi, XSS, CSRF).
   - Filters, blocks, and sanitizes inbound HTTP traffic.
@@ -250,13 +254,13 @@ The result is predictable interactions, easier evolution, and independent scalin
 
 - **Frontend Web (fe-web)**
   - User interface built with React + TypeScript; displays dashboards, device states, and analytics.
-  - **Relation:** Consumes services via the **WAF → API Gateway** path.
+  - **Relation:** Consumes services via the **WAF → reverse proxy → API Gateway** path.
 
 #### **Gateway & Core Logic Services**
 
 - **API Gateway (api-gateway)**
   - Central entry point for all external clients (web and mobile). Handles **authentication**, **rate limiting**, **request routing**, and **aggregation**.
-  - **Relation:** Receives traffic from **WAF** and routes requests to **ms-authentication-and-roles**, **ms-user-plant-management**, **lb-analytics**.
+  - **Relation:** Receives traffic from **WAF** and routes requests to **ms-authentication-and-roles**, **ms-user-plant-management**.
 
 - **Authentication and Roles (ms-authentication-and-roles)**
   - Handles user authentication, role-based access control, and JWT token validation.
@@ -266,13 +270,9 @@ The result is predictable interactions, easier evolution, and independent scalin
   - Manages user profiles, plant configurations, and device associations.
   - **Relation:** Accesses **db-user-plant-management** and **stg-user-plant-management**; requests routed via **API Gateway**.
 
-- **Load Balancer - Analytics (lb-analytics)**
-  - Distributes incoming analytics requests among multiple **be-analytics** instances to improve throughput.
-  - **Relation:** Served by **API Gateway**; forwards requests to **be-analytics**.
-
 - **Analytics (be-analytics)**
   - Performs computation of key metrics, aggregates processed data, and provides dashboards.
-  - **Relation:** Served by **lb-analytics**; consumes **db-caching** and **db-data-processing** for faster query response.
+  - **Relation: Consumes **db-caching** and **db-data-processing** for faster query response.
 
 - **Load Balancer - Data Ingestion (lb-data-ingestion)**
   - Distributes high-volume IoT data streams across **be-data-ingestion** instances.
@@ -286,17 +286,13 @@ The result is predictable interactions, easier evolution, and independent scalin
   - Consumes messages from the queue, performs data transformation, aggregation, and persistence.
   - **Relation:** Consumes **queue-data-ingestion**; interacts with **db-caching**, **stg-data-processing**, and **db-data-processing**.
 
-- **Load Balancer - Data Processing (lb-data-processing)**
-  - Balances workloads between **ms-data-processing** instances to handle peak data transformation demand.
-  - **Relation:** Balances requests and ensures stable processing throughput.
-
 ## Components description
 
 | **Component / Service** | **Responsibilities** | **Boundaries** | **Interfaces** |
 |---|---|---|---|
-| **WAF (Web Application Firewall)** | Identify malicious traffic, sanitizes requests, protects surface endpoints. | First boundary between clients and internal network. | Intercepts HTTP/S; forwards accepted traffic to Reverse Proxy. |
+| **WAF (Web Application Firewall)** | Identify malicious traffic, sanitizes requests, protects surface endpoints. | First layer of protection | Intercepts HTTP/S; forwards accepted traffic to Reverse Proxy. |
 | **Reverse Proxy** | SSL termination, routing, compression, request forwarding to load balancers and API gateway. | Sits between the WAF and fe-web and apigateway. | HTTP routing to fe-web, api-gateway. |
-| **Load Balancer** | Distributes incoming client and IoT requests and analytics requests to ensure availability and scalability. | Logical boundary between clients (IoT devices) and backend services. | Uses HTTP/REST and HTTP/Graphql protocols to route traffic to the API gateway or ingestion endpoints. |
+| **Load Balancer** | Distributes incoming client and IoT requests and  distributes traffic across WAF instances. | Logical boundary between clients (IoT devices) and backend services. | Uses HTTP/REST and HTTP/Graphql protocols to route traffic to the API gateway or ingestion endpoints. |
 | **Frontend** | Provides the main user interface for real-time visualization of sensor data, dashboards, and management of plants and devices. | Executed as a SSR in the user’s browser; depends on the `api-gateway`. | Communicates with the `api-gateway` using REST/GraphQL and HTTP/REST . |
 | **api-gateway** | Central entry point for all client interactions. Routes, aggregates, and authenticates API requests to backend microservices. | Coordinates backend communication; does not contain domain logic. | REST/GraphQL and HTTP/REST |
 | **ms-authentication-and-roles** | Handles user authentication and authorization, managing JWT tokens, sessions, and role-based access control (RBAC). | Operates independently with its own database; does not directly interact with sensor or plant data. | HTTP/REST for authentication and role management. |

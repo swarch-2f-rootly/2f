@@ -402,8 +402,8 @@ The diagram below illustrates the internal architecture of each microservice wit
 
 ### Architectural patterns
 
-- **7-Tier Architecture Pattern:**  
-  The system is logically divided into seven layers, each serving a distinct function — from presentation and routing to computation, distribution, asynchronous messaging, and data management.
+- **8-Tier Architecture Pattern:**  
+  The system is logically divided into eight layers, each serving a distinct function — from presentation and routing to computation, distribution, asynchronous messaging, and data management.
   
 - **Security Perimeter (Border):**  
   The WAF operates as an external **border layer**, isolating the system from untrusted traffic and acting as the first defensive boundary.

@@ -471,6 +471,33 @@ Shows the hierarchical breakdown of the system into functional modules, clarifyi
 ## Quality Attributes
 ##  Security
 
+The security quality attribute is addressed through four key architectural patterns that protect the system at different layers and entry points. Each pattern addresses specific security concerns and is validated through comprehensive testing in the GKE/GCP cloud environment.
+
+### Security Scenarios and Patterns
+
+The following security scenarios have been implemented and validated in Prototype 4:
+
+1. **[Web Application Firewall (WAF)](./web_application_firewall/README.md)**
+   - **Pattern**: Web Application Firewall Pattern
+   - **Purpose**: Protects web applications from common attacks (SQLi, XSS, CSRF, Layer-7 DoS) by inspecting and filtering HTTP traffic at the application layer
+   - **Validation**: Achieves 83.9% blocking rate during simulated attacks, maintaining consistent protection across multiple test runs
+
+2. **[Secure Channel](./secure_channel/README.md)**
+   - **Pattern**: Secure Channel Pattern
+   - **Purpose**: Ensures all external traffic is encrypted via HTTPS/TLS, preventing sensitive data exposure during network transmission
+   - **Validation**: All traffic encrypted with TLS 1.3; zero readable sensitive data packets captured
+
+3. **[Reverse Proxy](./reverse_proxy/README.md)**
+   - **Pattern**: Reverse Proxy Pattern
+   - **Purpose**: Routes traffic from WAF to internal services, handles SSL termination, and hides internal network topology
+   - **Validation**: Traffic flows correctly through WAF → Reverse Proxy → API Gateway chain with >99% routing success rate
+
+4. **[Network Segmentation](./network_segmentation/README.md)**
+   - **Pattern**: Network Segmentation Pattern
+   - **Purpose**: Isolates backend services from external access, exposing only intended public entry points (WAF, Data Ingestion LoadBalancers)
+   - **Validation**: All backend services remain as ClusterIP (internal only); zero successful external connections to internal services
+
+For detailed information about each security scenario, including quality attribute scenarios, validation steps, and results, please refer to the respective documentation in each pattern's directory.
 
 ---
 

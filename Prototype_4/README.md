@@ -675,6 +675,7 @@ The Cluster Pattern with N+1 schema successfully eliminates single points of fai
 
 For detailed validation steps, test results, baseline comparisons, and complete scenario documentation, see the [Clustering Quality Scenario documentation](clustering/README.md).
 
+---
 
 ### Replication pattern for Analytics Data Sources
 

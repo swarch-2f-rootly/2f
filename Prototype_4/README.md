@@ -827,6 +827,49 @@ For detailed validation steps, test results, baseline comparisons, and complete 
 
 ---
 
+### Active Redundancy for InfluxDB 3 Enterprise
+
+This scenario validates the Active Redundancy Pattern implementation for InfluxDB 3 Enterprise deployed on GCP with replication at both the compute and data storage levels. The system uses a GCP TCP Proxy Load Balancer to distribute traffic to healthy instances, two independent VM instances for compute replication, and a GCP Cloud Storage bucket with dual-region replication for data redundancy.
+
+**Architectural Pattern**: Active Redundancy  
+**Architectural Tactic**: Redundant Spare (Preparation and Repair)
+
+**Quality Attribute Scenario Elements:**
+
+1. **Artifact**: InfluxDB 3 Enterprise database system with replicated compute and storage. The system includes a GCP TCP Proxy Load Balancer (`influxdb-final-test` with IP `35.211.124.145`), two VM instances (`influxdb-test1` in us-east1-c and `influxdb-test-2` in us-east1-b), and a dual-region Cloud Storage bucket (`influxdb-data-test1` replicating across us-east1 and us-east4).
+
+2. **Source**: System administrator or automated monitoring system with knowledge of GCP infrastructure, using tools such as `gcloud` CLI and GCP Console. The intent is to test system resilience by stopping one instance to verify failover behavior.
+
+3. **Stimulus**: One InfluxDB VM instance becomes unavailable (stopped, crashed, or network failure). The load balancer's health check detects the failure and must automatically route traffic to the remaining healthy instance.
+
+4. **Environment**: Production environment with active read/write operations. The system operates with both instances running initially, then one instance is terminated to test failover behavior. Database operations include health checks, writes, and queries.
+
+5. **Response**: The load balancer detects the instance failure through health checks and automatically stops routing traffic to the failed instance. All requests are automatically routed to the remaining healthy instance. All database operations (health checks, writes, queries) remain functional without interruption.
+
+6. **Response Measure**: System availability maintained at 100% for database operations, zero data loss during failover, response time remains within acceptable limits, and all database operations succeed without errors.
+
+**GKE Implementation (Prototype 4):**
+
+The InfluxDB 3 Enterprise deployment provides redundancy at three levels. At the load balancing layer, the GCP TCP Proxy Load Balancer distributes traffic to healthy instances and automatically detects failures through health checks. At the compute layer, two independent VM instances run InfluxDB 3 Enterprise in different zones (us-east1-b and us-east1-c), allowing the system to continue operating when one instance fails. At the data layer, the GCP Cloud Storage bucket uses dual-region replication, ensuring data is stored redundantly across us-east1 and us-east4 regions.
+
+**Validation Results:**
+
+- **Load Balancer Failover**: The load balancer automatically detects instance failure through health checks and routes all traffic to the healthy instance without manual intervention.
+
+- **System Availability**: 100% availability maintained for database operations during single instance failures. All database operations (health checks, writes, queries) continue to function correctly.
+
+- **Data Availability**: The dual-region bucket ensures data remains accessible even if one region experiences issues. Both instances access the same underlying data stored in the dual-region bucket.
+
+- **Zero Data Loss**: No data loss occurs during failover. The remaining instance continues to serve all database operations with access to the replicated data in the dual-region bucket.
+
+- **Automatic Recovery**: The load balancer automatically routes traffic back to recovered instances when they become healthy again, restoring full redundancy.
+
+The Active Redundancy Pattern with multi-level redundancy (load balancing, compute replication, and data replication) successfully maintains system availability when one compute instance fails, ensuring continuous database operations without service interruption.
+
+For detailed validation steps, test results, baseline comparisons, and complete scenario documentation, see the [InfluxDB 3 Enterprise Replication Quality Scenario documentation](replication-influxdb3/README.md).
+
+---
+
 ## Interoperability
 
 ![interoperability](interoperability/quality-scenario.png)

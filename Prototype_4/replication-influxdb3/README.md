@@ -1,4 +1,4 @@
-# InfluxDB 3 Enterprise Replication - Availability Scenario
+# InfluxDB 3 Enterprise Active Redundancy - Availability Scenario
 
 This document demonstrates the availability scenario for InfluxDB 3 Enterprise deployed on GCP with replication at both the compute and data storage levels.
 

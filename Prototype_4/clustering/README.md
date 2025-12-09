@@ -380,30 +380,72 @@ The service chain remains functional throughout the Reverse Proxy pod failure. T
 
 ### Step 8: Measure Recovery Time
 
+**API Gateway Recovery Time:**
+
 ```bash
-# Delete pod and measure recovery
+# Delete pod and measure recovery time
 POD_NAME=$(kubectl get pods -n rootly-platform -l app=apigateway -o jsonpath='{.items[0].metadata.name}')
 echo "Deleting pod: $POD_NAME at $(date +%s)"
-
 kubectl delete pod $POD_NAME -n rootly-platform
-
-# Monitor until new pod is ready
-kubectl wait --for=condition=ready pod -l app=apigateway -n rootly-platform --timeout=60s
-
-echo "New pod ready at $(date +%s)"
+START_TIME=$(date +%s)
+kubectl wait --for=condition=ready pod -l app=apigateway -n rootly-platform --timeout=120s
+END_TIME=$(date +%s)
+RECOVERY_TIME=$((END_TIME - START_TIME))
+echo "Recovery time: $RECOVERY_TIME seconds"
 ```
 
 **Result:**
 
 ```
-Deleting pod: apigateway-698c895594-t4x4n at 1733698500
-pod/apigateway-698c895594-xxxxx condition met
-New pod ready at 1733698530
+Deleting pod: apigateway-698c895594-t4x4n at 1765240425
+pod "apigateway-698c895594-t4x4n" deleted
+pod/apigateway-698c895594-7b9vh condition met
+Recovery time: 12 seconds
 ```
 
-**Recovery Time**: 30 seconds
+**Reverse Proxy Recovery Time:**
 
-The ReplicaSet detected the pod deletion immediately and created a new pod instance. The new pod was scheduled on an available node, started successfully, and passed its readiness probe. The complete recovery time was 30 seconds, which is well below the 60 second target, demonstrating efficient automatic recovery.
+```bash
+# Delete Reverse Proxy pod and measure recovery time
+POD_NAME=$(kubectl get pods -n rootly-platform -l app=reverse-proxy -o jsonpath='{.items[0].metadata.name}')
+kubectl delete pod $POD_NAME -n rootly-platform
+START_TIME=$(date +%s)
+kubectl wait --for=condition=ready pod -l app=reverse-proxy -n rootly-platform --timeout=120s
+END_TIME=$(date +%s)
+RECOVERY_TIME=$((END_TIME - START_TIME))
+echo "Reverse Proxy recovery time: $RECOVERY_TIME seconds"
+```
+
+**Result:**
+
+```
+pod "reverse-proxy-786d8b8c9-7bgvs" deleted
+pod/reverse-proxy-786d8b8c9-bkzzj condition met
+Reverse Proxy recovery time: 14 seconds
+```
+
+**Authentication Backend Recovery Time:**
+
+```bash
+# Delete Authentication Backend pod and measure recovery time
+POD_NAME=$(kubectl get pods -n rootly-platform -l app=auth-backend -o jsonpath='{.items[0].metadata.name}')
+kubectl delete pod $POD_NAME -n rootly-platform
+START_TIME=$(date +%s)
+kubectl wait --for=condition=ready pod -l app=auth-backend -n rootly-platform --timeout=120s
+END_TIME=$(date +%s)
+RECOVERY_TIME=$((END_TIME - START_TIME))
+echo "Authentication Backend recovery time: $RECOVERY_TIME seconds"
+```
+
+**Result:**
+
+```
+pod "auth-backend-84544588df-g2g6h" deleted
+pod/auth-backend-84544588df-t2krd condition met
+Recovery time: 35 seconds
+```
+
+The ReplicaSet detected each pod deletion immediately and created new pod instances. The new pods were scheduled on available nodes, started successfully, and passed their readiness probes. The measured recovery times were 12 seconds for API Gateway, 14 seconds for Reverse Proxy, and 35 seconds for Authentication Backend. All recovery times are well below the 60 second target, demonstrating efficient automatic recovery. Recovery times vary based on pod startup time, image pull requirements, and readiness probe configuration.
 
 ## Response to Quality Scenario
 
@@ -412,22 +454,21 @@ The ReplicaSet detected the pod deletion immediately and created a new pod insta
 | Metric | Target | Actual | Status |
 |--------|--------|--------|--------|
 | **Availability During Failure** | > 99% | 100% | **ACHIEVED** |
-| **Recovery Time** | < 60s | 30s | **ACHIEVED** |
+| **Recovery Time** | < 60s | 12-35s (measured) | **ACHIEVED** |
 | **Request Success Rate** | > 99% | 100% | **ACHIEVED** |
-| **Replica Count Maintained** | Desired count | 2/2 | **ACHIEVED** |
+| **Replica Count Maintained** | Desired count | Maintained | **ACHIEVED** |
 
 **Detailed Measurement:**
 
-| Service | Replicas | Pod Failure Test | Availability | Recovery Time |
-|---------|----------|------------------|--------------|---------------|
-| **API Gateway** | 2 | Passed | 100% | 30s |
-| **Reverse Proxy** | 2 | Passed | 100% | 30s |
-| **WAF** | 2 | Passed | 100% | 30s |
-| **Authentication Backend** | 2 | Passed | 100% | 30s |
-| **User Plant Backend** | 2 | Passed | 100% | 30s |
-| **Data Ingestion** | 2 | Passed | 100% | 30s |
-| **Data Processing** | 2 | Passed | 100% | 30s |
-| **Analytics Backend** | 3 | Passed | 100% | 30s |
+| Service | Replicas | Pod Failure Test | Availability | Recovery Time (Measured) |
+|---------|----------|------------------|--------------|--------------------------|
+| **API Gateway** | 2 | Passed | 100% | 12s |
+| **Reverse Proxy** | 2 | Passed | 100% | 14s |
+| **Authentication Backend** | 2 | Passed | 100% | 35s |
 
-**Conclusion**: The Cluster Pattern with N+1 tactic is successfully implemented in GKE. All critical services maintain 100% availability during pod failures. The system automatically recovers within 30 seconds by recreating failed pods. The Active/Active cluster configuration ensures continuous service operation without manual intervention.
+**Recovery Time Test Results:**
+
+The recovery time was measured for three services by deleting pods and measuring the time until new pods became ready. API Gateway recovered in 12 seconds, Reverse Proxy recovered in 14 seconds, and Authentication Backend recovered in 35 seconds. These times are all below the 60 second target, demonstrating efficient automatic recovery. Recovery times vary based on pod startup time, image pull requirements, and readiness probe configuration. Services with faster startup times and simpler health checks recover more quickly than services with longer initialization periods.
+
+**Conclusion**: The Cluster Pattern with N+1 tactic is successfully implemented in GKE. All tested services maintain 100% availability during pod failures. The system automatically recovers by recreating failed pods, with measured recovery times of 12 seconds for API Gateway, 14 seconds for Reverse Proxy, and 35 seconds for Authentication Backend. These recovery times vary based on service startup characteristics but all remain below the 60 second target. The Active/Active cluster configuration ensures continuous service operation without manual intervention.
 

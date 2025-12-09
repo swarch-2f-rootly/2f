@@ -29,9 +29,9 @@
     - [Load Balancer](#load-balancer)
     - [Caching](#caching)
   - [Reliability](#reliability)
-    - [Replication pattern lb analytics](#replication-pattern-lb-analytics)
+    - [Replication pattern Reverse Proxy](#replication-pattern-reverse-proxy)
     - [Cluster pattern](#cluster-pattern)
-    - [Replication pattern db caching](#replication-pattern-db-caching)
+    - [Replication pattern for Analytics Data Sources](#replication-pattern-for-analytics-data-source)
     - [Service Discovery](#service-discovery)
   - [Interoperability](#interoperability)
   

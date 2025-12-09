@@ -311,6 +311,102 @@ The result is predictable interactions, easier evolution, and independent scalin
 | **stg-user-plant-management** | MinIO storage for plant images and related documents. | Attached to user-plant management domain. | S3-compatible API -  data source connector. |
 ---
 
+## Deployment Structure
+### Deployment view
+
+![deployment-view](images/DeployP4.png)
+
+### Description of Architectural Elements and Relations
+
+The system is deployed on **Google Cloud Platform (GCP)** using a combination of **Google Kubernetes Engine (GKE)**, **Compute Engine VMs**, **Cloud Storage buckets**, **Cloud NAT**, and **GCP Load Balancers**. The architecture leverages **containerization** and **clustering** patterns to ensure high availability, scalability, and resilience.
+
+Based on the deployment view, the system's elements are allocated as follows:
+
+*   **Software Elements:** All services are deployed as containerized applications within a **GKE cluster**, organized into public and private network segments. This includes:
+    
+    *   **GCP Load Balancer (Entry Point):** The **GCP Load Balancer** serves as the primary entry point for all web and mobile client traffic. It distributes incoming requests across multiple **WAF** instances to ensure high availability and prevent bottlenecks. This is the first point of contact for external traffic entering the system.
+    
+    *   **WAF (Web Application Firewall):** Multiple **WAF** instances are deployed in a clustered configuration, receiving traffic from the GCP Load Balancer. Each WAF instance provides deep packet inspection, SQL injection prevention, and DDoS mitigation. The load balancer ensures traffic is distributed evenly across all healthy WAF instances.
+    
+    *   **Reverse Proxy:** The `reverse-proxy` receives validated traffic from the WAF instances and performs SSL termination, request routing, and compression. It routes requests to frontend services and the API Gateway.
+    
+    *   **Client Applications:** The `fe-web` (Next.js/TypeScript) provides server-side rendering for web clients, deployed in the public subnet within the GKE cluster.
+    
+    *   **API Gateway:** The `api-gateway` (Go) acts as the central orchestration layer, implementing authentication (JWT), rate limiting, and routing to backend microservices. Multiple instances are deployed using clustering for high availability.
+    
+    *   **Backend Microservices:** Deployed in the private subnet with dedicated persistence, all services use clustering with multiple replicas:
+        *   `be-authentication-and-roles` (FastAPI/Python): Manages authentication and RBAC, connected to `db-authentication-and-roles` (PostgreSQL) and `stg-authentication-and-roles` (Cloud Storage via MinIO proxy).
+        *   `be-user-plant-manager` (FastAPI/Python): Handles user/plant CRUD operations, connected to `db-user-plant-management` (PostgreSQL).
+        *   `be-analytics` (FastAPI/Python with Pandas, multiple instances): Performs statistical analysis and aggregations, connected to `db-analytics` (PostgreSQL with TimescaleDB extension) and `stg-analytics` (Cloud Storage via MinIO proxy) for query caching, load-balanced by `lb-analytics`.
+        *   `be-data-ingestion` (Go, multiple instances): Receives IoT sensor data and publishes to Kafka, load-balanced by `lb-data-ingestion`.
+        *   `be-data-processing` (Python with Kafka Consumer, multiple instances): Consumes from Kafka, transforms and validates data, writes to `db-data-processing` (InfluxDB).
+    
+    *   **Asynchronous Communication Services:**
+        *   `queue-data-ingestion` (Apache Kafka with Zookeeper): Provides asynchronous event streaming backbone with persistent storage.
+
+*   **Environmental Elements:**
+    
+    *   **Google Cloud Platform Infrastructure:**
+        *   **GKE Cluster:** A managed Kubernetes cluster hosting all containerized services. The cluster spans multiple nodes across availability zones for high availability.
+        *   **Public Subnet:** Contains the GCP Load Balancer, WAF instances, reverse proxy, `fe-web`, and `api-gateway`, exposing controlled access to external clients.
+        *   **Private Subnet:** Contains all backend microservices, databases, message queue, and internal load balancers, isolated from direct external access. Services communicate via Kubernetes internal networking and service discovery.
+        *   **Cloud NAT:** Provides outbound internet access for private subnet resources without exposing them to the internet.
+        *   **Cloud Storage Buckets:** Used for persistent storage of time-series data, logs, and backups, accessed via MinIO proxy services.
+        *   **Compute Engine VMs:** Used for supporting infrastructure components and management tasks.
+    
+    *   **External Clients:**
+        *   **Web Browsers:** External users accessing the system via HTTPS through the GCP Load Balancer.
+        *   **Mobile App (fe-mobile):** Mobile devices (smartphone/tablet running iOS/Android) executing the `fe-mobile` application (React Native), which communicates with the system via HTTPS through the GCP Load Balancer.
+        *   **IoT Devices (Microcontrollers):** Physical microcontrollers (ESP32-based), equipped with environmental sensors (temperature, humidity, soil moisture, light, pH), transmitting telemetry data in JSON format over HTTPS to the Data Ingestion Load Balancer.
+
+*   **Relations (Network Communication):**
+    
+    *   **External Communication (User Traffic):**
+        *   Web browsers → **GCP Load Balancer** → **WAF instances** (distributed) → `reverse-proxy` → `fe-web` or `api-gateway` → Backend microservices
+        *   `fe-mobile` → **GCP Load Balancer** → **WAF instances** (distributed) → `reverse-proxy` → `api-gateway` → Backend microservices
+        *   The GCP Load Balancer is the primary entry point, distributing traffic across multiple WAF instances for high availability and load distribution.
+    
+    *   **External Communication (IoT Traffic):**
+        *   `microcontroller` → **GCP Load Balancer (Data Ingestion)** → `lb-data-ingestion` → `be-data-ingestion` (multiple instances) → `queue-data-ingestion`
+        *   IoT traffic uses a separate GCP Load Balancer dedicated to data ingestion, providing a second entry point to the system optimized for high-throughput sensor data streams.
+    
+    *   **Internal Communication (GKE Cluster):**
+        *   All services within the GKE cluster communicate via Kubernetes internal networking using ClusterIP services and DNS-based service discovery.
+        *   `api-gateway` routes requests to backend services based on endpoint mappings:
+            *   Authentication endpoints → `be-authentication-and-roles` (clustered)
+            *   User/plant management → `be-user-plant-manager` (clustered)
+            *   Analytics queries → `lb-analytics` → `be-analytics` instances (clustered)
+        *   Backend services connect to their dedicated databases and storage layers using Kubernetes service names for DNS resolution.
+        *   Internal load balancers (`lb-analytics`, `lb-data-ingestion`) distribute traffic across multiple service instances with automatic health checks and failover.
+        *   Kubernetes automatically provides load balancing for all service-to-service communication.
+    
+    *   **Asynchronous Data Flow:**
+        *   `be-data-ingestion` → `queue-data-ingestion` (Kafka) → `be-data-processing` → `db-data-processing` → `db-analytics`
+        *   Kafka provides temporal decoupling, message persistence, and replay capabilities for high-throughput sensor data streams.
+    
+    *   **Storage and Persistence:**
+        *   Databases (PostgreSQL, InfluxDB) are deployed as stateful services within the GKE cluster with persistent volumes.
+        *   Object storage is provided via Cloud Storage buckets, accessed through MinIO proxy services running in the cluster.
+        *   All data is backed up to Cloud Storage buckets for disaster recovery.
+
+### Description of Architectural Patterns Used
+
+The deployment structure reveals several key architectural patterns:
+
+*   **Clustering Pattern:** All critical services are deployed with multiple replicas in an Active/Active cluster configuration. This includes WAF instances, reverse proxy, API Gateway, and all backend microservices. Kubernetes ReplicaSets ensure the desired number of replicas are maintained, providing high availability and automatic failover. When a pod fails, Kubernetes automatically creates a new instance and routes traffic to healthy replicas.
+
+*   **Service Discovery Pattern:** Kubernetes provides built-in DNS-based service discovery. Services locate each other using stable DNS names (e.g., `api-gateway.rootly-platform.svc.cluster.local`) rather than hardcoded IP addresses. When pods are recreated with new IPs, the service endpoints are automatically updated, and DNS resolution ensures seamless connectivity.
+
+*   **Event-Driven (Message Broker):** The `queue-data-ingestion` (Kafka) decouples the data ingestion and processing pipelines. This allows the system to handle high volumes of sensor data asynchronously and reliably, enabling temporal decoupling and independent scaling of producers and consumers.
+
+*   **Database per Service:** Each microservice has its own dedicated persistence layer (e.g., `be-authentication-and-roles` has `db-authentication-and-roles` and `stg-authentication-and-roles`). This ensures data isolation, schema autonomy, and allows each service to evolve independently.
+
+*   **Containerization:** Every software component is deployed as a containerized application within the GKE cluster. This standardizes the deployment, simplifies dependency management, and ensures consistency across environments. Kubernetes manages container lifecycle, resource allocation, and networking.
+
+*   **Load Balancing:** GCP Load Balancers provide external traffic distribution at the cloud infrastructure level, while Kubernetes Services provide internal load balancing for service-to-service communication. This multi-tier load balancing ensures optimal traffic distribution and high availability.
+
+---
+
 ## Layered Structure
   
 ### Layered view

@@ -626,43 +626,54 @@ The verification process will confirm that the Active Redundancy pattern and Red
 
 ---
 
-### Cluster pattern
-![cluster scenario](images/clusterP4.png)
+### Cluster Pattern
 
-This scenario models the system operating entirely on a single machine, where all application services, the database, analytics engine, API layer, and background components share the same execution environment. During normal user activity, a machine-level fault suddenly occurs—such as an OS crash, hardware malfunction, or unexpected shutdown—causing every running component to fail simultaneously. Because the entire platform depends on a single node, the failure results in a complete service outage: all requests time out, processes terminate abruptl.
+![cluster scenario](clustering/quality-scenario.png)
 
-#### Source
-User Request, the requests originate from end users interacting with the system during normal usage. The system is expected to respond promptly and reliably to these interactions.
+This scenario validates the Cluster Pattern implementation in GKE to improve system availability through multiple pod replicas. The system migrated from Docker (Prototype 3) with single-instance deployments to GKE (Prototype 4) with multiple replicas using the N+1 schema.
 
-#### Stimulus
-Machine Failure in a Single-Node Environment, a failure occurs on the only machine hosting the entire system. This may include hardware malfunction, operating system crash, or an unexpected shutdown that disrupts all running services.
+**Architectural Pattern**: Cluster Pattern  
+**Architectural Tactic**: Redundant Spare (Recover from Faults → Preparation and Repair)  
+**Cluster Schema**: N+1 (Star Schema)  
+**Cluster Type**: Active/Active
 
-#### Environment
-Normal Operations,the system is running under standard load conditions. No abnormal spikes, maintenance tasks, or external disruptions are present when the failure occurs.
+**Quality Attribute Scenario Elements:**
 
-#### Artifact
-Entire System (Single-Machine Deployment), all components—application logic, APIs, database, frontend, background workers, and internal services—are deployed on a single physical or virtual machine. There is no redundancy or distribution of workload across multiple nodes.
+1. **Artifact**: Critical services in GKE deployment including API Gateway, Reverse Proxy, WAF, Authentication Backend, User Plant Backend, Data Ingestion, Data Processing, and Analytics Backend. All services must maintain availability even when individual pod instances fail.
 
-#### Response
-Full Service Outage, the complete system becomes unavailable. All incoming requests fail with timeouts or error responses, and users cannot access any functionality until the machine is restored.
+2. **Source**: System administrator or automated system monitoring with knowledge of the Kubernetes platform, using tools such as Kubernetes CLI (kubectl) and container orchestration platform. The intent is to simulate pod failure to test cluster resilience.
 
-#### Response Measure
-No Failover / Availability Drops to 0%, since the system depends on a single machine, there is no automated failover or backup instance. Recovery requires manual intervention, leading to extended downtime and a temporary total loss of availability.
+3. **Stimulus**: A pod instance of a critical service fails or is terminated. Failure causes include manual pod deletion for testing, node failure, resource exhaustion (OOM kill), application crash, or network partition. The system must continue serving requests using remaining healthy pod replicas.
 
-#### Architectural Pattern: Cluster
+4. **Environment**: GKE production environment with services deployed in `rootly-platform` namespace. Multiple pod replicas run for each critical service. Kubernetes ReplicaSets manage pod lifecycle, service discovery operates via Kubernetes DNS, and load balancing is handled through Kubernetes Services using ClusterIP type. The system is under normal operation with all services healthy and receiving traffic.
 
-This pattern improves system availability by deploying multiple independent nodes that function as a unified logical system. Instead of relying on a single machine, the system is replicated or distributed across several nodes capable of sharing or splitting the workload.
+5. **Response**: When a pod fails, the Kubernetes Service automatically routes traffic away from the failed pod to healthy replicas. The ReplicaSet detects the pod failure and automatically creates a new pod instance to replace it. The application continues serving requests without interruption, maintaining service continuity. Kubernetes health checks (liveness and readiness probes) ensure only healthy pods receive traffic.
 
-When a node fails, other nodes continue operating, minimizing service disruption and preventing full system outages. The pattern focuses on eliminating the single point of failure inherent in one-machine deployments.The pattern itself does not define how node failures are detected or how traffic is redirected; those behaviors are introduced later through availability tactics such as heartbeat monitoring, node health checks, or automated failover mechanisms.
+6. **Response Measure**: Primary metrics include availability during failure (target > 99%), recovery time from pod failure to new pod ready (target < 60 seconds), request success rate during failure (target > 99%), and replica count maintenance. Measured results show 100% availability, recovery times of 12-35 seconds, and 100% request success rate.
 
-#### Architectural Tactic: N+1
-This tactic ensures high availability by maintaining one additional unit of capacity beyond what the system needs to operate normally. With N active instances handling the workload and one extra instance or capacity margin as backup, the system can tolerate the failure of any single component without dropping below the required operational level. 
+**Baseline (Docker - Prototype 3):**
 
-- This prevents single points of failure and allows the service to continue functioning even during unexpected outages.
+In Docker Compose, services are deployed as single instances. When the API Gateway container is stopped, all requests that normally pass through it fail completely with connection refused errors. Backend services (Analytics, Authentication, User Plant Management) remain healthy but become unreachable because the API Gateway is the single entry point. This creates a critical single point of failure, resulting in 0% availability for all user-facing services during the failure period. No automatic recovery mechanism exists, requiring manual intervention to restore service.
 
-In GKE, the N+1 tactic is naturally supported through ReplicaSets, which automatically recreate failed pods to maintain the desired number of running instances. Additionally, features like node auto-repair and node auto-provisioning ensure that if a node becomes unhealthy, the platform replaces or heals it, preserving the extra capacity needed to sustain the N+1 redundancy model.
+**GKE Implementation (Prototype 4):**
 
-#### Verification 
+All critical services are deployed with multiple replicas: API Gateway (2 replicas), Reverse Proxy (2 replicas), WAF (2 replicas), Authentication Backend (2 replicas), User Plant Backend (2 replicas), Data Ingestion (2 replicas), Data Processing (2 replicas), and Analytics Backend (3 replicas). Kubernetes Services automatically load balance traffic across pod replicas using round-robin distribution. When a pod fails, the Kubernetes Service immediately routes traffic away from the failed pod to healthy replicas. The ReplicaSet detects the pod failure and automatically creates a new pod instance to replace it.
+
+**Validation Results:**
+
+- **Availability During Failure**: 100% availability maintained during pod failures. All tested services (API Gateway, Reverse Proxy, Authentication Backend) continue serving requests without interruption.
+
+- **Measured Recovery Times**: API Gateway recovered in 12 seconds, Reverse Proxy recovered in 14 seconds, and Authentication Backend recovered in 35 seconds. All recovery times are well below the 60 second target.
+
+- **Request Success Rate**: 100% of requests succeed during pod failures. Traffic automatically routes to remaining healthy pods with no service interruption.
+
+- **Automatic Load Balancing**: Kubernetes Services act as load balancers, automatically distributing traffic across pod replicas. Load balancing is transparent to applications and requires no code changes.
+
+- **Replica Count Maintenance**: Desired replica counts are automatically maintained. When a pod is deleted, the ReplicaSet immediately creates a new pod to restore the desired count.
+
+The Cluster Pattern with N+1 schema successfully eliminates single points of failure and ensures continuous service operation without manual intervention.
+
+For detailed validation steps, test results, baseline comparisons, and complete scenario documentation, see the [Clustering Quality Scenario documentation](clustering/README.md).
 
 
 ### Replication pattern for Analytics Data Sources

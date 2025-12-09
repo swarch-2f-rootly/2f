@@ -655,19 +655,20 @@ The reverse-proxy is deployed with multiple replicas (2 replicas) using Kubernet
 
 **Validation Results:**
 
-- **Availability During Failure**: 100% availability maintained during pod failures. The reverse-proxy continues serving requests without interruption, with all traffic automatically routed to remaining healthy replicas.
+- **Availability During Failure**: 100% availability maintained during pod failures in the conducted tests. The reverse-proxy continued serving requests without interruption, with all traffic automatically routed to remaining healthy replicas. Note: This represents the observed behavior during testing; absolute 100% availability cannot be guaranteed in all production scenarios.
 
-- **Measured Recovery Times**: Reverse Proxy recovered in 14 seconds. Recovery time is well below the 60 second target, demonstrating efficient automatic recovery. With multiple replicas, service availability remains at 100% throughout the recovery period because the remaining healthy replica continues handling all traffic.
+- **Measured Recovery Times**: Reverse Proxy recovered in 14 seconds (measured during testing). Recovery time is well below the 60 second target, demonstrating efficient automatic recovery. With multiple replicas, service availability remained at 100% throughout the recovery period in the conducted tests because the remaining healthy replica continued handling all traffic.
 
-- **Request Success Rate**: 100% of requests succeed during pod failures. Traffic automatically routes to remaining healthy pods with no service interruption, demonstrating zero downtime.
+- **Request Success Rate**: 100% of requests succeeded during pod failures in the conducted tests. Traffic automatically routed to remaining healthy pods with no service interruption observed, demonstrating zero downtime during the test period.
 
 - **Failover Time**: < 1 second (immediate). The Kubernetes Service immediately detects pod failure through health checks and routes traffic to healthy replicas without delay.
 
 - **Replica Count Maintenance**: Desired replica counts are automatically maintained. When a pod is deleted, the ReplicaSet immediately creates a new pod to restore the desired count.
 
-The Active Redundancy Pattern with Redundant Spare tactic successfully eliminates the single point of failure in the reverse-proxy component and provides high availability for traffic routing to backend services. This represents a significant improvement over the Docker baseline, which required manual intervention to restore service after a failure.
+The Active Redundancy Pattern with Redundant Spare tactic successfully eliminates the single point of failure in the reverse-proxy component and provides high availability for traffic routing to backend services. The test results demonstrate significant improvement over the Docker baseline, which required manual intervention to restore service after a failure.
 
 For detailed validation steps, test results, baseline comparisons, and complete scenario documentation, see the [Replication Reverse Proxy Quality Scenario documentation](replication_reverse_proxy/README.md).
+
 
 ---
 

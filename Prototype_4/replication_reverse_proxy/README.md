@@ -235,6 +235,148 @@ In this case, the reverse-proxy serves as the critical routing component for all
 
 The single instance deployment creates a critical single point of failure. When the reverse-proxy fails, it causes a system-wide outage for all user-facing services. Backend services remain healthy and functional, but they are unreachable through normal channels because the reverse-proxy is the routing component. There is no automatic recovery mechanism, resulting in 0% availability for user-facing services during the failure period.
 
+### Baseline Verification: Single Instance Failure in GCP (GKE)
+
+To demonstrate that the SPOF issue persists even in Kubernetes when using only 1 replica, a test was conducted in GCP with the reverse-proxy scaled to 1 replica.
+
+**Test Setup:**
+
+```bash
+# Scale reverse-proxy deployment to 1 replica
+kubectl scale deployment reverse-proxy -n rootly-platform --replicas=1
+
+# Wait for scaling to complete
+kubectl wait --for=condition=ready pod -l app=reverse-proxy -n rootly-platform --timeout=60s
+
+# Verify only 1 pod remains
+kubectl get pods -n rootly-platform -l app=reverse-proxy -o wide
+```
+
+**Result:**
+
+```
+deployment.apps/reverse-proxy scaled
+pod/reverse-proxy-786d8b8c9-r7msd condition met
+NAME                            READY   STATUS    RESTARTS   AGE   IP            NODE
+reverse-proxy-786d8b8c9-r7msd   1/1     Running   0          28h   10.12.0.186   gk3-rootly-cluster-pool-1-8a65803a-lg8j
+```
+
+Only one reverse proxy pod remains running.
+
+**Service Availability Test Before Failure:**
+
+```bash
+# Get WAF LoadBalancer IP
+WAF_IP=$(kubectl get service waf-loadbalancer -n rootly-platform -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
+# Test service chain with single instance
+curl -k -s https://${WAF_IP}/api/v1/health --max-time 3 | grep -o '"status":"[^"]*"'
+```
+
+**Result:**
+
+```
+"status":"healthy"
+```
+
+Service chain works correctly with single instance when the pod is healthy.
+
+**Pod Failure Simulation:**
+
+```bash
+# Delete the single pod to simulate failure
+POD_NAME=$(kubectl get pods -n rootly-platform -l app=reverse-proxy -o jsonpath='{.items[0].metadata.name}')
+kubectl delete pod $POD_NAME -n rootly-platform
+```
+
+**Result:**
+
+```
+pod "reverse-proxy-786d8b8c9-r7msd" deleted
+```
+
+Single pod deleted.
+
+**Service Availability During Pod Recreation:**
+
+```bash
+# Test service chain during pod recreation
+for i in 1 2 3 4 5; do
+  echo "Attempt $i:"
+  curl -k -s https://${WAF_IP}/api/v1/health --max-time 2 2>&1 | grep -o '"status":"[^"]*"' || echo "FAILED"
+  sleep 2
+done
+```
+
+**Result:**
+
+```
+Attempt 1:
+FAILED
+Attempt 2:
+FAILED
+Attempt 3:
+FAILED
+Attempt 4:
+FAILED
+Attempt 5:
+FAILED
+```
+
+All requests fail during the pod recreation period.
+
+**Service Endpoints During Failure:**
+
+```bash
+# Check service endpoints during failure
+kubectl get endpoints reverse-proxy-service -n rootly-platform -o wide
+```
+
+**Result:**
+
+```
+NAME                   ENDPOINTS   AGE
+reverse-proxy-service   <none>      33h
+```
+
+No endpoints available. The service has no healthy pods to route traffic to because the new pod has not passed its readiness probe yet.
+
+**Recovery Time Measurement:**
+
+```bash
+# Measure recovery time
+POD_NAME=$(kubectl get pods -n rootly-platform -l app=reverse-proxy -o jsonpath='{.items[0].metadata.name}')
+kubectl delete pod $POD_NAME -n rootly-platform
+START_TIME=$(date +%s)
+kubectl wait --for=condition=ready pod -l app=reverse-proxy -n rootly-platform --timeout=120s
+END_TIME=$(date +%s)
+RECOVERY_TIME=$((END_TIME - START_TIME))
+echo "Recovery time: $RECOVERY_TIME seconds"
+```
+
+**Result:**
+
+```
+Deleting pod: reverse-proxy-786d8b8c9-kccgd at 1765247490
+pod "reverse-proxy-786d8b8c9-kccgd" deleted
+pod/reverse-proxy-786d8b8c9-6rtcg condition met
+Recovery time: 13 seconds
+```
+
+New pod is ready after 13 seconds. The ReplicaSet automatically created the new pod to maintain the desired replica count of 1. During this 13 second period, the service has no available endpoints and all requests fail.
+
+**Analysis:**
+
+This demonstrates that even in Kubernetes/GCP, when the reverse-proxy has only 1 replica, the system experiences complete service unavailability during pod recreation. The Kubernetes ReplicaSet detects the pod deletion and immediately creates a new pod instance, but with only 1 replica configured, there is no backup instance to handle traffic during the recreation period. The new pod takes 13 seconds to become ready (pass readiness probe), during which time all requests through the reverse proxy fail. The service has no endpoints available during this period, resulting in connection failures. The measured recovery time of 13 seconds represents complete service unavailability, demonstrating that the SPOF issue persists even in a Kubernetes environment when using only 1 replica.
+
+**Comparison:**
+
+- **Docker (1 instance)**: 0% availability, manual recovery required
+- **GCP/GKE (1 replica)**: 0% availability during 13-second recovery period, automatic pod recreation but no traffic handling during recovery
+- **GCP/GKE (2 replicas)**: 100% availability, zero downtime, automatic recovery
+
+This clearly demonstrates the critical importance of multiple replicas for high availability, even in Kubernetes environments.
+
 ## Validation: GKE Deployment (Prototype 4) - Active Redundancy Pattern
 
 ### Automatic Load Balancing in Kubernetes
@@ -469,19 +611,20 @@ The ReplicaSet detected the pod deletion immediately and created a new pod insta
 | Configuration | Replicas | Pod Failure Test | Availability | Recovery Time (Measured) | Downtime |
 |---------------|----------|------------------|--------------|--------------------------|----------|
 | **Docker (Baseline)** | 1 | Passed | 0% (complete outage) | N/A (manual recovery) | Until manual restart |
+| **GCP/GKE (1 replica)** | 1 | Passed | 0% (complete outage during recovery) | 13s (measured) | 13 seconds |
 | **Active Redundancy (GCP)** | 2 | Passed | 100% (zero downtime in tests) | 13-14s (measured) | 0 seconds (in tests) |
 
 **Recovery Time Test Results:**
 
-The recovery time was measured by deleting pods and measuring the time until new pods became ready. With 2 replicas in GCP, the system maintained 100% availability throughout the recovery period in the conducted tests, with the new pod becoming ready in approximately 13-14 seconds (measured during testing, recovery times may vary slightly). The key difference is that with multiple replicas, the remaining healthy replica continues handling all traffic during recovery, resulting in zero downtime during the test period. In the Docker baseline, recovery requires manual intervention, resulting in extended downtime until the container is manually restarted.
+The recovery time was measured by deleting pods and measuring the time until new pods became ready. With 1 replica in GCP, the system experienced 0% availability during the 13-second recovery period, demonstrating that even Kubernetes automatic pod recreation does not eliminate the SPOF when only 1 replica is configured. With 2 replicas in GCP, the system maintained 100% availability throughout the recovery period in the conducted tests, with the new pod becoming ready in approximately 13-14 seconds (measured during testing, recovery times may vary slightly). The key difference is that with multiple replicas, the remaining healthy replica continues handling all traffic during recovery, resulting in zero downtime during the test period. In the Docker baseline, recovery requires manual intervention, resulting in extended downtime until the container is manually restarted.
 
 **Comparison with Baseline:**
 
-| Metric | Baseline (Docker - Single Instance) | With Active Redundancy (GCP - 2 Replicas) | Improvement |
-|--------|-------------------------------------|-------------------------------------------|-------------|
-| **Availability During Failure** | 0% (complete outage until manual restart) | 100% (zero downtime in tests) | **100% improvement** |
-| **Recovery Time** | N/A (manual intervention required) | 13-14 seconds (automatic, measured) | **Automatic recovery** |
-| **Request Success Rate** | 0% (all requests fail) | 100% (all requests succeed in tests) | **100% improvement** |
-| **Failover Time** | N/A (no failover) | < 1 second | **Immediate failover** |
+| Metric | Baseline (Docker - Single Instance) | GCP/GKE (1 Replica) | With Active Redundancy (GCP - 2 Replicas) | Improvement |
+|--------|-------------------------------------|---------------------|-------------------------------------------|-------------|
+| **Availability During Failure** | 0% (complete outage until manual restart) | 0% (13s downtime during recovery) | 100% (zero downtime in tests) | **100% improvement** |
+| **Recovery Time** | N/A (manual intervention required) | 13 seconds (automatic) | 13-14 seconds (automatic, measured) | **Automatic recovery** |
+| **Request Success Rate** | 0% (all requests fail) | 0% (all requests fail during recovery) | 100% (all requests succeed in tests) | **100% improvement** |
+| **Failover Time** | N/A (no failover) | N/A (no failover) | < 1 second | **Immediate failover** |
 
 **Conclusion**: The Active Redundancy Pattern with Redundant Spare tactic is successfully implemented for the Reverse Proxy component in GKE. The system maintained 100% availability during pod failures in the conducted tests. The system automatically recovers by recreating failed pods, with measured recovery times of approximately 13-14 seconds (observed during testing, recovery times may vary slightly). The key improvement compared to the Docker baseline is that with multiple replicas in GCP, service availability remained at 100% throughout the recovery period in the tests because the remaining healthy replica continued handling all traffic. The Active/Active cluster configuration ensures continuous service operation without manual intervention, eliminating the single point of failure and providing high availability. The test results demonstrate significant improvement over the Docker baseline, which required manual intervention to restore service after a failure. Note: While the tests showed 100% availability, absolute 100% availability cannot be guaranteed in all production scenarios due to various factors that may affect system behavior.

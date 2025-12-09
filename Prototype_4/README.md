@@ -736,52 +736,52 @@ To verify reliability, both data stores remain active during the test. A failure
 
 ### Service Discovery
 
-Service Discovery ensures that internal callers (e.g., `api-gateway`, `ms-user-plant-management`) always find the authentication service even as replicas are restarted or rescheduled. Observability relies on **Docker logs** to detect registration or resolution issues early and drive remediation.
+The scenario presented describes the system’s behavior in response to changes in its internal topology through the application of the **Service Discovery Pattern**, a fundamental architectural pattern in distributed systems and particularly in microservices architectures. This pattern is supported by the architectural tactic **Recover from Faults → Preparation and Repair**, which aims to maintain system resilience in the presence of failures or dynamic modifications.
 
 ![Service discovery scenario](images/Service-Discovery-Pattern.png)
 
 #### Artifact
 
-**Service Lookup Path for Authentication:** Runtime resolution of the `be-authentication-and-roles` service name to healthy container instances.
-
-- **Service Registry / Docker DNS:** Built-in Docker resolver providing name-to-IP mapping for containers on `rootly-network`.
-- **be-authentication-and-roles:** Auth/RBAC microservice whose availability is critical to all request flows.
-- **Internal Clients:** `api-gateway`, `ms-user-plant-management`, and background jobs that call authentication APIs.
-- **Observability:** Centralized `docker compose logs` stream used to detect lookup errors (`no such host`, `connection refused`) and container health changes.
+The affected artifact is the entire system that supports internal communication between microservices. The Service Discovery component acts as an intermediary to register and resolve the available instances.
 
 #### Source
 
-**Internal service callers** (gateway and backend microservices) performing REST calls against `http://be-authentication-and-roles:8000`. They depend on name resolution and healthy targets to proceed.
+The stimulus originates from any internal microservice that needs to invoke another service using a logical name instead of a fixed physical address. This mechanism decouples services from each other and prevents static dependencies.
 
 #### Stimulus
 
-- A new replica of `be-authentication-and-roles` is started or restarted.
-- A caller issues authentication or role checks immediately after the change.
-- DNS propagation or container health takes a few seconds to stabilize.
+The system experiences changes in its topology due to events such as:
+
+- Autoscaling (automatic creation or removal of instances)
+- Restarts of containers or services
+- Occasional instance failures
+- New deployments or updates
+
+These events modify the set of available instances that must be discovered by the system.
 
 #### Environment
 
-Normal operations with Docker Compose on `rootly-network`, dynamic container restarts/scaling, and aggregated logs collected via `docker compose logs -f`.
+The scenario occurs under normal operating conditions, where the infrastructure is expected to dynamically adapt without interrupting the functioning of the services.
 
 #### Response
 
-- **Before Service Discovery discipline:** Callers experience intermittent `502/503` or `no such host be-authentication-and-roles` while the new container comes up; failures surface only when user flows break.
-- **After Service Discovery discipline:** Docker DNS provides up-to-date mappings; log-based observers watch for resolution errors and unhealthy containers, triggering a fast restart or alert when needed. Callers automatically pick a healthy instance once available.
+Service Discovery continuously updates and resolves the available instances to ensure internal communication.  
+This involves:
+
+- Registering new instances
+- Removing failed instances
+- Updating routing or addressing information
+- Maintaining dynamic resolution based on logical names
+
+Through this process, the system ensures that any microservice can locate another regardless of its current physical location or the number of replicas.
 
 #### Response Measure
 
-Validation driven by Docker log telemetry and HTTP outcomes:
+The objective of the scenario is to achieve a high service resolution rate, ensuring that most internal requests can be successfully resolved through the discovery mechanism under normal operating conditions.
 
-- **Name-Resolution Error Rate:** Percentage of `no such host` or connection refused messages in `docker compose logs` for auth calls (target: ~0% after stabilization).
-- **Time to Detect Registration Gap:** Time from container restart to first log-detected resolution error and remediation trigger (target: <30s).
-- **HTTP 5xx from Auth Calls:** Observed in gateway/client logs during rollout (target: near-zero after discovery stabilizes).
-- **Successful Auth Call Rate:** Proportion of calls that reach a healthy `be-authentication-and-roles` instance (target: ~100% once DNS updates propagate).
+#### Architectural Pattern: Service Discovery Pattern
 
-By tying Service Discovery to Docker log observability, the team gains immediate visibility into lookup issues and can react before authentication outages propagate to end users.
-
-#### Architectural Pattern:
-
-#### Architectural Tactic: 
+#### Architectural Tactic: Recover from Faults > Preparation and Repair
 
 ---
 

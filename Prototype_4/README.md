@@ -623,6 +623,8 @@ For detailed information about each performance scenario, including quality attr
 
 ### Replication pattern Reverse Proxy
 
+### Replication pattern Reverse Proxy
+
 ![reverse scenario](images/reverseRP4.png)
 
 This scenario validates the Active Redundancy Pattern implementation for the Reverse Proxy component in GKE to improve system availability and eliminate the Single Point of Failure (SPOF). The system migrated from Docker (Prototype 3) with single-instance deployment to GKE (Prototype 4) with multiple replicas using Active Redundancy.
@@ -643,11 +645,15 @@ This scenario validates the Active Redundancy Pattern implementation for the Rev
 
 5. **Response**: When a pod fails, the Kubernetes Service automatically routes traffic away from the failed pod to healthy replicas. The ReplicaSet detects the pod failure and automatically creates a new pod instance to replace it. The application continues routing traffic without interruption, maintaining service continuity. Kubernetes health checks, including liveness and readiness probes, ensure that only healthy pods receive traffic. The service remains available during pod failure with no service interruption for end users.
 
-6. **Response Measure**: Primary metrics include availability during failure (target > 99%), recovery time from pod failure to new pod ready (target < 60 seconds), request success rate during failure (target > 99%), and failover time for traffic to route to healthy replicas (target < 3 seconds). Measured results show 100% availability, recovery times of 14 seconds, and 100% request success rate.
+6. **Response Measure**: Primary metrics include availability during failure (target > 99%), recovery time from pod failure to new pod ready (target < 60 seconds), request success rate during failure (target > 99%), and failover time for traffic to route to healthy replicas (target < 3 seconds). Measured results show 100% availability, recovery times of approximately 13-14 seconds, and 100% request success rate.
 
 **Baseline (Docker - Prototype 3):**
 
 In Docker Compose, the reverse-proxy is deployed as a single instance. When the reverse-proxy container is stopped, all traffic routing fails completely. The WAF cannot forward traffic to backend services because the reverse-proxy is the single entry point for internal routing. This creates a critical single point of failure, resulting in 0% availability for all user-facing services during the failure period. No automatic recovery mechanism exists, requiring manual intervention to restore service. All requests fail with connection errors or timeouts until the container is manually restarted.
+
+**Baseline Verification (GCP/GKE with 1 Replica):**
+
+To demonstrate that the SPOF issue persists even in Kubernetes when using only 1 replica, a test was conducted in GCP with the reverse-proxy scaled to 1 replica. When the single pod was deleted, the system experienced complete service unavailability during the pod recreation period. All requests failed for 13 seconds while the new pod was being created and became ready. The Kubernetes ReplicaSet automatically created a new pod, but with only 1 replica, there was no backup instance to handle traffic during the recreation period, resulting in 0% availability during the recovery window. This demonstrates that even Kubernetes automatic pod recreation does not eliminate the SPOF when only 1 replica is configured.
 
 **GKE Implementation (Prototype 4):**
 
@@ -655,9 +661,9 @@ The reverse-proxy is deployed with multiple replicas (2 replicas) using Kubernet
 
 **Validation Results:**
 
-- **Availability During Failure**: 100% availability maintained during pod failures in the conducted tests. The reverse-proxy continued serving requests without interruption, with all traffic automatically routed to remaining healthy replicas. Note: This represents the observed behavior during testing; absolute 100% availability cannot be guaranteed in all production scenarios.
+- **Availability During Failure**: 100% availability maintained during pod failures in the conducted tests with 2 replicas. The reverse-proxy continued serving requests without interruption, with all traffic automatically routed to remaining healthy replicas. This contrasts with the 0% availability observed when using only 1 replica in GCP, which experienced 13 seconds of complete downtime during pod recreation. Note: This represents the observed behavior during testing; absolute 100% availability cannot be guaranteed in all production scenarios.
 
-- **Measured Recovery Times**: Reverse Proxy recovered in 14 seconds (measured during testing). Recovery time is well below the 60 second target, demonstrating efficient automatic recovery. With multiple replicas, service availability remained at 100% throughout the recovery period in the conducted tests because the remaining healthy replica continued handling all traffic.
+- **Measured Recovery Times**: Reverse Proxy recovered in approximately 13-14 seconds (measured during testing, recovery times may vary slightly). Recovery time is well below the 60 second target, demonstrating efficient automatic recovery. With multiple replicas, service availability remained at 100% throughout the recovery period in the conducted tests because the remaining healthy replica continued handling all traffic.
 
 - **Request Success Rate**: 100% of requests succeeded during pod failures in the conducted tests. Traffic automatically routed to remaining healthy pods with no service interruption observed, demonstrating zero downtime during the test period.
 
@@ -668,7 +674,6 @@ The reverse-proxy is deployed with multiple replicas (2 replicas) using Kubernet
 The Active Redundancy Pattern with Redundant Spare tactic successfully eliminates the single point of failure in the reverse-proxy component and provides high availability for traffic routing to backend services. The test results demonstrate significant improvement over the Docker baseline, which required manual intervention to restore service after a failure.
 
 For detailed validation steps, test results, baseline comparisons, and complete scenario documentation, see the [Replication Reverse Proxy Quality Scenario documentation](replication_reverse_proxy/README.md).
-
 
 ---
 

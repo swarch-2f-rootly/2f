@@ -24,7 +24,8 @@ The Interoperability Pattern enables communication between heterogeneous systems
 
 ## Quality Attribute Scenario
 
-<img src="quality-scenario.png" alt="Quality Attribute Scenario" width="1000"/>
+<img width="1281" height="722" alt="image" src="https://github.com/user-attachments/assets/bbcc0b44-6581-44c0-a177-b138f049cac9" />
+
 
 ### 1. Artifact
 
